@@ -1,0 +1,157 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Entity Validators
+    function isValidUser(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.fullName is string && data.fullName.size() > 0 && data.fullName.size() <= 100 &&
+             data.email is string && data.email.size() <= 200 &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() <= 500)) &&
+             (!('theme' in data) || (data.theme in ['light', 'dark', 'system'])) &&
+             (!('preferredDailyWorkingHours' in data) || (data.preferredDailyWorkingHours is number && data.preferredDailyWorkingHours >= 0 && data.preferredDailyWorkingHours <= 24));
+    }
+
+    function isValidGoal(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 140 &&
+             data.category is string && data.category.size() <= 50 &&
+             data.startDate is string && data.startDate.size() <= 15 &&
+             data.endDate is string && data.endDate.size() <= 15 &&
+             data.status in ['active', 'completed', 'paused', 'archived'] &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             (!('durationDays' in data) || (data.durationDays is number && data.durationDays >= 1 && data.durationDays <= 365));
+    }
+
+    function isValidTask(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.goalId is string && data.goalId.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 140 &&
+             data.requiredDurationMinutes is number && data.requiredDurationMinutes >= 1 && data.requiredDurationMinutes <= 1440 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+             (!('preferredTime' in data) || (data.preferredTime is string && data.preferredTime.size() <= 10)) &&
+             (!('deadlineTime' in data) || (data.deadlineTime is string && data.deadlineTime.size() <= 10));
+    }
+
+    function isValidSession(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.taskId is string && data.taskId.size() <= 128 &&
+             data.goalId is string && data.goalId.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.date is string && data.date.size() <= 15 &&
+             data.startTimestamp is number && data.startTimestamp >= 0 &&
+             data.endTimestamp is number && data.endTimestamp >= data.startTimestamp &&
+             data.durationSeconds is number && data.durationSeconds >= 0 && data.durationSeconds <= 86400;
+    }
+
+    function isValidCertificate(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.verificationCode is string && data.verificationCode.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 100 &&
+             data.goalId is string && data.goalId.size() <= 128 &&
+             data.goalName is string && data.goalName.size() <= 140 &&
+             data.issuedAt is string && data.issuedAt.size() <= 50;
+    }
+
+    // Connection testing doc
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().id == userId;
+      allow update: if isOwner(userId) && isValidUser(incoming()) && incoming().id == userId &&
+                      incoming().diff(existing()).affectedKeys().hasOnly([
+                        'fullName', 'username', 'email', 'phone', 'bio', 'occupation',
+                        'companyOrSchool', 'location', 'website', 'github', 'linkedin',
+                        'twitter', 'avatarUrl', 'avatarStorageType', 'timeZone',
+                        'preferredDailyWorkingHours', 'preferredWorkStartTime', 'preferredWorkEndTime',
+                        'workingDays', 'primaryCategory', 'theme', 'accentColor',
+                        'notificationsEnabled', 'soundEnabled', 'accountTier', 'lastLoginAt'
+                      ]);
+      allow delete: if isOwner(userId);
+    }
+
+    // Goals collection
+    match /goals/{goalId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(goalId) && isValidGoal(incoming()) && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && isValidId(goalId) && existing().userId == request.auth.uid &&
+                      isValidGoal(incoming()) && incoming().userId == existing().userId &&
+                      incoming().diff(existing()).affectedKeys().hasOnly([
+                        'title', 'description', 'category', 'color', 'iconName',
+                        'durationOption', 'durationDays', 'startDate', 'endDate',
+                        'status', 'motivationalQuote', 'completedAt', 'certificateId'
+                      ]);
+      allow delete: if isSignedIn() && isValidId(goalId) && existing().userId == request.auth.uid;
+    }
+
+    // Tasks collection
+    match /tasks/{taskId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(taskId) && isValidTask(incoming()) && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && isValidId(taskId) && existing().userId == request.auth.uid &&
+                      isValidTask(incoming()) && incoming().userId == existing().userId &&
+                      incoming().diff(existing()).affectedKeys().hasOnly([
+                        'title', 'description', 'requiredDurationMinutes',
+                        'preferredTime', 'deadlineTime', 'frequency', 'notes'
+                      ]);
+      allow delete: if isSignedIn() && isValidId(taskId) && existing().userId == request.auth.uid;
+    }
+
+    // Focus Sessions collection
+    match /sessions/{sessionId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(sessionId) && isValidSession(incoming()) && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && isValidId(sessionId) && existing().userId == request.auth.uid &&
+                      isValidSession(incoming()) && incoming().userId == existing().userId &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['notes', 'syncStatus', 'isOffline']);
+      allow delete: if isSignedIn() && isValidId(sessionId) && existing().userId == request.auth.uid;
+    }
+
+    // Certificates collection
+    match /certificates/{certificateId} {
+      // Individual certificates can be fetched by ID for public verification
+      allow get: if isValidId(certificateId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(certificateId) && isValidCertificate(incoming()) && incoming().userId == request.auth.uid;
+      allow update: if false; // Certificates are immutable
+      allow delete: if isSignedIn() && isValidId(certificateId) && existing().userId == request.auth.uid;
+    }
+  }
+}

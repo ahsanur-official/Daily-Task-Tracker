@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      (function() {
+        try {
+          var target = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+          if (target && target.fetch) {
+            var _activeFetch = target.fetch;
+            try {
+              Object.defineProperty(target, 'fetch', {
+                get: function() {
+                  return _activeFetch;
+                },
+                set: function(fn) {
+                  _activeFetch = fn;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            } catch (err) {
+              // Silently handle if property is locked
+            }
+          }
+        } catch (_) {}
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        try {
+          var userStr = localStorage.getItem('user_profile');
+          var theme = 'light';
+          if (userStr) {
+            var user = JSON.parse(userStr);
+            if (user && user.theme) {
+              theme = user.theme;
+            }
+          }
+          var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (_) {}
+      })();
+    </script>
+    <title>Daily Task Tracker</title>
+    <meta name="description" content="A modern, minimal, premium daily task and goal tracking productivity web application with accurate timers, streaks, recovery balance, and certificates." />
+    <meta property="og:title" content="Daily Task Tracker" />
+    <meta property="og:description" content="A modern, minimal, premium daily task and goal tracking productivity web application with accurate timers, streaks, recovery balance, and certificates." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/logo.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="apple-touch-icon" href="/logo.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 antialiased selection:bg-amber-500/20 selection:text-amber-900 dark:selection:text-amber-200">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

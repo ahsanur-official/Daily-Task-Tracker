@@ -1,0 +1,6 @@
+{
+  "name": "Daily Task Tracker",
+  "description": "A modern, minimal, premium daily task and goal tracking productivity web application with accurate timers, streaks, recovery balance, and certificates.",
+  "requestFramePermissions": ["notifications"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

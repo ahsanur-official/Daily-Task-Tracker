@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="35%" stop-color="#06b6d4" />
+      <stop offset="70%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#0066ff" />
+    </linearGradient>
+
+    <linearGradient id="clockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+
+    <linearGradient id="leafGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#15803d" />
+      <stop offset="60%" stop-color="#22c55e" />
+      <stop offset="100%" stop-color="#4ade80" />
+    </linearGradient>
+
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0f2b48" flood-opacity="0.12" />
+    </filter>
+  </defs>
+
+  <circle cx="300" cy="300" r="280" fill="#ffffff" />
+  <circle cx="300" cy="300" r="264" fill="none" stroke="url(#ringGrad)" stroke-width="26" stroke-linecap="round" />
+
+  <g filter="url(#shadow)">
+    <rect x="175" y="115" width="195" height="250" rx="36" fill="#162c50" />
+    <rect x="187" y="127" width="171" height="226" rx="28" fill="#ffffff" />
+
+    <path d="M 235 127 C 235 105, 310 105, 310 127 Z" fill="#162c50" />
+    <rect x="242" y="90" width="60" height="30" rx="14" fill="#162c50" />
+    <circle cx="272" cy="102" r="7" fill="#ffffff" />
+
+    <rect x="206" y="165" width="40" height="40" rx="10" fill="#16a34a" />
+    <path d="M 215 185 L 223 193 L 237 175" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+    <rect x="256" y="174" width="70" height="7" rx="3.5" fill="#94a3b8" />
+    <rect x="256" y="189" width="45" height="7" rx="3.5" fill="#cbd5e1" />
+
+    <rect x="206" y="217" width="40" height="40" rx="10" fill="#16a34a" />
+    <path d="M 215 237 L 223 245 L 237 227" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+    <rect x="256" y="226" width="65" height="7" rx="3.5" fill="#94a3b8" />
+    <rect x="256" y="241" width="38" height="7" rx="3.5" fill="#cbd5e1" />
+
+    <rect x="206" y="269" width="40" height="40" rx="10" fill="#16a34a" />
+    <path d="M 215 289 L 223 297 L 237 279" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+    <rect x="256" y="278" width="55" height="7" rx="3.5" fill="#94a3b8" />
+    <rect x="256" y="293" width="32" height="7" rx="3.5" fill="#cbd5e1" />
+  </g>
+
+  <g>
+    <path d="M 375 250 C 375 190, 440 145, 470 145 C 470 185, 450 250, 395 265 Z" fill="url(#leafGrad)" />
+    <path d="M 390 255 Q 430 200 460 155" fill="none" stroke="#15803d" stroke-width="3" stroke-linecap="round" opacity="0.4" />
+    
+    <path d="M 405 270 C 420 220, 475 200, 485 205 C 485 235, 455 280, 420 282 Z" fill="url(#leafGrad)" />
+    <path d="M 415 273 Q 450 240 475 210" fill="none" stroke="#15803d" stroke-width="2.5" stroke-linecap="round" opacity="0.4" />
+  </g>
+
+  <g filter="url(#shadow)">
+    <circle cx="370" cy="305" r="75" fill="#ffffff" stroke="url(#clockGrad)" stroke-width="19" />
+    <line x1="370" y1="245" x2="370" y2="258" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round" />
+    <line x1="430" y1="305" x2="417" y2="305" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round" />
+    <line x1="370" y1="365" x2="370" y2="352" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round" />
+    <line x1="310" y1="305" x2="323" y2="305" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round" />
+
+    <line x1="370" y1="305" x2="398" y2="277" stroke="#1e3a8a" stroke-width="7" stroke-linecap="round" />
+    <circle cx="370" cy="305" r="10" fill="#16a34a" />
+    <circle cx="370" cy="305" r="4.5" fill="#ffffff" />
+  </g>
+
+  <g text-anchor="middle" font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif">
+    <text x="300" y="445" font-size="52" font-weight="900" letter-spacing="-1">
+      <tspan fill="#0f2b48">Daily </tspan>
+      <tspan fill="#16a34a">Task</tspan>
+    </text>
+    <text x="300" y="500" font-size="52" font-weight="900" fill="#0f2b48" letter-spacing="-1">
+      Tracker
+    </text>
+    <rect x="250" y="518" width="100" height="8" rx="4" fill="#16a34a" />
+  </g>
+</svg>

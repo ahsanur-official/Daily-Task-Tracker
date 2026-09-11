@@ -1,0 +1,143 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with personal details, work preferences, and display settings.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "fullName": { "type": "string", "maxLength": 100 },
+        "username": { "type": "string", "maxLength": 50, "pattern": "^[a-zA-Z0-9_.-]+$" },
+        "email": { "type": "string", "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "bio": { "type": "string", "maxLength": 500 },
+        "occupation": { "type": "string", "maxLength": 100 },
+        "companyOrSchool": { "type": "string", "maxLength": 100 },
+        "location": { "type": "string", "maxLength": 100 },
+        "website": { "type": "string", "maxLength": 200 },
+        "github": { "type": "string", "maxLength": 100 },
+        "linkedin": { "type": "string", "maxLength": 100 },
+        "twitter": { "type": "string", "maxLength": 100 },
+        "avatarUrl": { "type": "string", "maxLength": 1000 },
+        "avatarStorageType": { "type": "string", "enum": ["uploaded_device", "url", "preset"] },
+        "timeZone": { "type": "string", "maxLength": 80 },
+        "preferredDailyWorkingHours": { "type": "number" },
+        "preferredWorkStartTime": { "type": "string", "maxLength": 10 },
+        "preferredWorkEndTime": { "type": "string", "maxLength": 10 },
+        "theme": { "type": "string", "enum": ["light", "dark", "system"] },
+        "accentColor": { "type": "string", "maxLength": 20 },
+        "notificationsEnabled": { "type": "boolean" },
+        "soundEnabled": { "type": "boolean" },
+        "accountTier": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "lastLoginAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "fullName", "email", "createdAt"]
+    },
+    "Goal": {
+      "title": "Goal",
+      "description": "Multi-day commitment tracking daily habit completion and target duration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 140 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "category": { "type": "string", "maxLength": 50 },
+        "color": { "type": "string", "maxLength": 20 },
+        "iconName": { "type": "string", "maxLength": 50 },
+        "durationOption": { "type": "string", "enum": ["3_days", "7_days", "15_days", "30_days", "custom"] },
+        "durationDays": { "type": "number" },
+        "startDate": { "type": "string", "maxLength": 15 },
+        "endDate": { "type": "string", "maxLength": 15 },
+        "status": { "type": "string", "enum": ["active", "completed", "paused", "archived"] },
+        "motivationalQuote": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "completedAt": { "type": "string", "maxLength": 50 },
+        "certificateId": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "userId", "title", "category", "startDate", "endDate", "status", "createdAt"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Individual repeatable daily action linked to a parent goal with time requirement.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "goalId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 140 },
+        "description": { "type": "string", "maxLength": 500 },
+        "requiredDurationMinutes": { "type": "number" },
+        "preferredTime": { "type": "string", "maxLength": 10 },
+        "deadlineTime": { "type": "string", "maxLength": 10 },
+        "frequency": { "type": "string", "enum": ["daily", "weekdays", "custom"] },
+        "notes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "goalId", "userId", "title", "requiredDurationMinutes", "createdAt"]
+    },
+    "TimeSession": {
+      "title": "TimeSession",
+      "description": "Logged focus time session with start/end timestamps and duration in seconds.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "taskId": { "type": "string", "maxLength": 128 },
+        "goalId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 15 },
+        "startTimestamp": { "type": "number" },
+        "endTimestamp": { "type": "number" },
+        "durationSeconds": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 500 },
+        "isOffline": { "type": "boolean" },
+        "syncStatus": { "type": "string", "enum": ["synced", "pending"] }
+      },
+      "required": ["id", "taskId", "goalId", "userId", "date", "startTimestamp", "endTimestamp", "durationSeconds"]
+    },
+    "Certificate": {
+      "title": "Certificate",
+      "description": "Verifiable accomplishment certificate awarded upon 100% goal completion.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "verificationCode": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userAvatar": { "type": "string", "maxLength": 1000 },
+        "goalId": { "type": "string", "maxLength": 128 },
+        "goalName": { "type": "string", "maxLength": 140 },
+        "durationDays": { "type": "number" },
+        "totalSecondsTracked": { "type": "number" },
+        "startDate": { "type": "string", "maxLength": 15 },
+        "completionDate": { "type": "string", "maxLength": 15 },
+        "template": { "type": "string", "enum": ["classic", "modern", "onyx", "emerald"] },
+        "issuedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "verificationCode", "userId", "userName", "goalId", "goalName", "issuedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile and personal preferences. Restricted to authenticated owner."
+    },
+    "/goals/{goalId}": {
+      "schema": "Goal",
+      "description": "Goals owned by users. Read and written strictly by the goal owner."
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Tasks attached to goals. Read and written strictly by the task owner."
+    },
+    "/sessions/{sessionId}": {
+      "schema": "TimeSession",
+      "description": "Recorded focus sessions. Read and written strictly by the session owner."
+    },
+    "/certificates/{certificateId}": {
+      "schema": "Certificate",
+      "description": "Verified certificates. Written by owner upon goal completion, public read allowed for certificate verification."
+    }
+  }
+}
