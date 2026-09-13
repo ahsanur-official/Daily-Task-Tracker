@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   User,
   Mail,
@@ -22,6 +22,8 @@ import {
   ChevronRight,
   ArrowRight,
   RefreshCw,
+  LogOut,
+  Cloud,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PRESET_AVATARS, processStorageImageFile } from '../../utils/imageUpload';
@@ -33,30 +35,41 @@ interface AuthModalProps {
 export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
   const {
     user,
-    registeredAccounts,
+    firebaseUser,
+    loginWithGoogle,
     login,
     signup,
-    switchAccount,
+    resetPassword,
+    logout,
     isAuthModalOpen,
     setIsAuthModalOpen,
     authModalTab,
     setAuthModalTab,
+    isFirestoreConnected,
   } = useApp();
 
-  const isOpen = forceOpen || isAuthModalOpen || (!user && isAuthModalOpen);
+  const isOpen = forceOpen || isAuthModalOpen;
+
+  useEffect(() => {
+    if (!firebaseUser && authModalTab === 'switch') {
+      setAuthModalTab('login');
+    }
+  }, [firebaseUser, authModalTab, setAuthModalTab]);
 
   // Sign In State
   const [loginIdentifier, setLoginIdentifier] = useState('');
-  const [loginPassword, setLoginPassword] = useState('password123');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
   // Forgot password modal state
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSentMessage, setForgotSentMessage] = useState<string | null>(null);
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   // Sign Up State
   const [signupStep, setSignupStep] = useState<1 | 2>(1);
@@ -68,114 +81,126 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [showSignupPassword, setShowSignupPassword] = useState(false);
 
-  // Step 2 profile data
-  const [signupOccupation, setSignupOccupation] = useState('Software Engineer & Designer');
-  const [signupLocation, setSignupLocation] = useState('San Francisco, CA');
-  const [signupBio, setSignupBio] = useState('Committed to daily consistency and mastery.');
+  // Step 2 profile fields
+  const [signupOccupation, setSignupOccupation] = useState('');
+  const [signupLocation, setSignupLocation] = useState('');
+  const [signupBio, setSignupBio] = useState('');
   const [signupTimezone, setSignupTimezone] = useState(
-    Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'
   );
   const [signupDailyHours, setSignupDailyHours] = useState(4);
   const [signupStartTime, setSignupStartTime] = useState('09:00');
   const [signupEndTime, setSignupEndTime] = useState('18:00');
 
-  // Avatar & Image from Storage System
-  const [avatarPreview, setAvatarPreview] = useState<string>(PRESET_AVATARS[0].url);
-  const [avatarStorageType, setAvatarStorageType] = useState<'uploaded_device' | 'url' | 'preset'>('preset');
+  // Image Storage & Avatar Selection
+  const [avatarPreview, setAvatarPreview] = useState(PRESET_AVATARS[0]);
+  const [avatarStorageType, setAvatarStorageType] = useState<'preset' | 'url' | 'uploaded_device'>('preset');
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [uploadedFileSizeKb, setUploadedFileSizeKb] = useState<number | null>(null);
-  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [customAvatarUrl, setCustomAvatarUrl] = useState('');
   const [imageError, setImageError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Validation & Loading
   const [signupError, setSignupError] = useState<string | null>(null);
   const [signupLoading, setSignupLoading] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(true);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   if (!isOpen) return null;
 
-  // Handle Image Upload from Local Device Storage System
+  // File upload handler
   const handleDeviceImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageError(null);
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setImageError(null);
-    setIsProcessingImage(true);
-
     try {
-      const result = await processStorageImageFile(file, 400, 0.88);
-      setAvatarPreview(result.dataUrl);
+      const processed = await processStorageImageFile(file);
+      setAvatarPreview(processed.dataUrl);
       setAvatarStorageType('uploaded_device');
-      setUploadedFileName(result.fileName);
-      setUploadedFileSizeKb(result.sizeKb);
-    } catch (err) {
-      setImageError(err instanceof Error ? err.message : 'Failed to process selected image');
-    } finally {
-      setIsProcessingImage(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      setUploadedFileName(processed.fileName);
+      setUploadedFileSizeKb(processed.sizeKb);
+    } catch (err: any) {
+      setImageError(err.message || 'Image processing failed');
     }
   };
 
-  // Drag & drop handlers
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.stopPropagation();
+    setImageError(null);
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
 
-    setImageError(null);
-    setIsProcessingImage(true);
-
     try {
-      const result = await processStorageImageFile(file, 400, 0.88);
-      setAvatarPreview(result.dataUrl);
+      const processed = await processStorageImageFile(file);
+      setAvatarPreview(processed.dataUrl);
       setAvatarStorageType('uploaded_device');
-      setUploadedFileName(result.fileName);
-      setUploadedFileSizeKb(result.sizeKb);
-    } catch (err) {
-      setImageError(err instanceof Error ? err.message : 'Failed to process dropped image');
-    } finally {
-      setIsProcessingImage(false);
+      setUploadedFileName(processed.fileName);
+      setUploadedFileSizeKb(processed.sizeKb);
+    } catch (err: any) {
+      setImageError(err.message || 'Image processing failed');
     }
   };
 
-  // Password strength calculation
   const getPasswordStrength = (pass: string) => {
     let score = 0;
-    if (pass.length >= 8) score++;
-    if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score++;
+    if (pass.length >= 6) score++;
+    if (pass.length >= 10) score++;
     if (/[0-9]/.test(pass)) score++;
     if (/[^A-Za-z0-9]/.test(pass)) score++;
-    return score; // 0 to 4
+    return score;
   };
 
   const passwordScore = getPasswordStrength(signupPassword);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
 
     if (!loginIdentifier.trim()) {
-      setLoginError('Please enter your email address or username.');
+      setLoginError('Please enter your email address.');
+      return;
+    }
+    if (!loginPassword) {
+      setLoginError('Please enter your password.');
       return;
     }
 
     setLoginLoading(true);
-    setTimeout(() => {
-      const res = login(loginIdentifier.trim(), loginPassword);
-      setLoginLoading(false);
+    try {
+      const res = await login(loginIdentifier.trim(), loginPassword);
       if (!res.success) {
-        setLoginError(res.message || 'Login failed. Please check credentials.');
+        setLoginError(res.message || 'Login failed. Please check your credentials.');
       } else {
         setIsAuthModalOpen(false);
       }
-    }, 250);
+    } catch (err: any) {
+      setLoginError(err?.message || 'Authentication error.');
+    } finally {
+      setLoginLoading(false);
+    }
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
+  const handleGoogleSignIn = async () => {
+    setLoginError(null);
+    setSignupError(null);
+    setGoogleLoading(true);
+    try {
+      const res = await loginWithGoogle();
+      if (!res.success) {
+        setLoginError(res.message || 'Google sign-in failed.');
+        setSignupError(res.message || 'Google sign-in failed.');
+      } else {
+        setIsAuthModalOpen(false);
+      }
+    } catch (err: any) {
+      setLoginError(err?.message || 'Google sign-in failed.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignupError(null);
 
@@ -195,8 +220,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
     }
 
     setSignupLoading(true);
-    setTimeout(() => {
-      const res = signup({
+    try {
+      const res = await signup({
         fullName: signupFullName,
         username: signupUsername,
         email: signupEmail,
@@ -213,42 +238,59 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
         avatarStorageType,
       });
 
-      setSignupLoading(false);
       if (!res.success) {
         setSignupError(res.message || 'Registration failed.');
       } else {
         setIsAuthModalOpen(false);
       }
-    }, 300);
+    } catch (err: any) {
+      setSignupError(err?.message || 'Registration failed.');
+    } finally {
+      setSignupLoading(false);
+    }
   };
 
-  // Quick Demo Login Helper
-  const handleQuickDemo = (email: string, defaultPass = 'password123') => {
-    setLoginIdentifier(email);
-    setLoginPassword(defaultPass);
-    login(email, defaultPass);
-    setIsAuthModalOpen(false);
+  const handleSendResetEmail = async () => {
+    if (!forgotEmail.trim()) {
+      setForgotSentMessage('Please enter your email address.');
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await resetPassword(forgotEmail.trim());
+      if (res.success) {
+        setForgotSentMessage(`A password reset link has been dispatched to ${forgotEmail.trim()}. Please check your email.`);
+      } else {
+        setForgotSentMessage(res.message || 'Could not send reset email. Please verify the address.');
+      }
+    } catch (err: any) {
+      setForgotSentMessage(err?.message || 'Password reset error.');
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/60 backdrop-blur-md animate-fadeIn overflow-y-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-md animate-fadeIn overflow-y-auto"
+      onClick={() => setIsAuthModalOpen(false)}
+    >
       <div
         className="relative w-full max-w-xl bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Decorative Header */}
+        {/* Top Header */}
         <div className="relative bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 px-6 pt-6 pb-5 border-b border-stone-100 dark:border-stone-800/80">
-          {user && (
-            <button
-              onClick={() => setIsAuthModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-              title="Close modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setIsAuthModalOpen(false)}
+            className="absolute top-5 right-5 p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer z-10"
+            title="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-2 pr-8">
             <img
               src="/logo.svg"
               alt="Daily Task Tracker"
@@ -258,9 +300,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
               <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100 tracking-tight flex items-center gap-2">
                 Daily Task Tracker
               </h2>
-              <p className="text-xs text-stone-500 dark:text-stone-400">
-                Persistent Identity, Goal Architecture & Time Mastery
-              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Cloud Sync Active
+                </span>
+                <span className="text-stone-300 dark:text-stone-700">•</span>
+                <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                  Real-Time Synchronization
+                </span>
+              </div>
             </div>
           </div>
 
@@ -298,49 +347,97 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
               <span>Create Account</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setAuthModalTab('switch')}
-              className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                authModalTab === 'switch'
-                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
-                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Accounts</span>
-              <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold flex items-center justify-center">
-                {registeredAccounts.length}
-              </span>
-            </button>
+            {user && (
+              <button
+                type="button"
+                onClick={() => setAuthModalTab('switch')}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                  authModalTab === 'switch'
+                    ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Account</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Modal Body */}
         <div className="p-6 max-h-[75vh] overflow-y-auto">
+          {(!user || !firebaseUser) && (
+            <div className="mb-4 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-950 dark:text-amber-200 text-xs flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="leading-snug">
+                <span className="font-bold block text-stone-900 dark:text-stone-100">
+                  Account Required
+                </span>
+                <span className="text-[11px] text-stone-600 dark:text-stone-400">
+                  Please sign in or create an account to start tracking your daily tasks, focus timers, and deliberate practice.
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* ======================= SIGN IN TAB ======================= */}
           {authModalTab === 'login' && (
-            <div>
-              <form onSubmit={handleLoginSubmit} className="space-y-4">
-                {loginError && (
-                  <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-2.5 text-xs text-rose-800 dark:text-rose-300 animate-shake">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <span>{loginError}</span>
-                  </div>
-                )}
+            <div className="space-y-4">
+              {loginError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-2.5 text-xs text-rose-800 dark:text-rose-300 animate-shake">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{loginError}</span>
+                </div>
+              )}
 
+              {/* Real Google Sign-In */}
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading || loginLoading}
+                className="w-full py-3 px-4 rounded-xl border border-stone-300 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold text-sm flex items-center justify-center gap-3 transition-colors shadow-xs cursor-pointer disabled:opacity-60"
+              >
+                {googleLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+                    <span>Signing in with Google...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+                      <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.97 0 12s.45 3.84 1.25 5.42l4.03-3.15z"/>
+                      <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                    </svg>
+                    <span>Continue with Google</span>
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center my-4">
+                <div className="flex-grow border-t border-stone-200 dark:border-stone-800"></div>
+                <span className="flex-shrink mx-4 text-stone-400 text-xs uppercase tracking-wider font-semibold">
+                  or sign in with email
+                </span>
+                <div className="flex-grow border-t border-stone-200 dark:border-stone-800"></div>
+              </div>
+
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
-                    Email Address or Username
+                    Email Address
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
-                      type="text"
+                      type="email"
                       required
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder="e.g. alex@dailytracker.app or alexrivera"
+                      placeholder="you@example.com"
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-stone-900 dark:text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-stone-400"
                     />
                   </div>
@@ -354,7 +451,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                     <button
                       type="button"
                       onClick={() => setShowForgotPassword(true)}
-                      className="text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:underline"
+                      className="text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
                     >
                       Forgot password?
                     </button>
@@ -372,7 +469,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                     <button
                       type="button"
                       onClick={() => setShowLoginPassword(!showLoginPassword)}
-                      className="p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 absolute right-3 top-1/2 -translate-y-1/2"
+                      className="p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
                     >
                       {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -387,7 +484,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                       onChange={(e) => setRememberMe(e.target.checked)}
                       className="w-4 h-4 rounded border-stone-300 text-amber-500 focus:ring-amber-400 accent-amber-500"
                     />
-                    <span>Remember active session</span>
+                    <span>Remember this session</span>
                   </label>
                 </div>
 
@@ -399,54 +496,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                   {loginLoading ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Authenticating...</span>
+                      <span>Signing in...</span>
                     </>
                   ) : (
                     <>
-                      <span>Sign In to Tracker</span>
+                      <span>Sign In with Email</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
                 </button>
               </form>
 
-              {/* Quick Demo Accounts Picker */}
-              <div className="mt-6 pt-5 border-t border-stone-200 dark:border-stone-800">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-2.5 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Instant 1-Click Access (Saved Profiles)</span>
-                </div>
-
-                <div className="space-y-2">
-                  {registeredAccounts.slice(0, 3).map((acc) => (
-                    <button
-                      key={acc.profile.id}
-                      type="button"
-                      onClick={() => handleQuickDemo(acc.profile.email, acc.passwordHash)}
-                      className="w-full p-2.5 rounded-xl border border-stone-200/80 dark:border-stone-800/80 hover:border-amber-500/50 bg-stone-50/70 dark:bg-stone-800/40 hover:bg-amber-500/5 transition-all text-left flex items-center justify-between group"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <img
-                          src={acc.profile.avatarUrl}
-                          alt={acc.profile.fullName}
-                          className="w-8 h-8 rounded-lg object-cover ring-1 ring-stone-200 dark:ring-stone-700"
-                        />
-                        <div>
-                          <div className="text-xs font-semibold text-stone-900 dark:text-stone-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                            {acc.profile.fullName}
-                          </div>
-                          <div className="text-[11px] text-stone-500 dark:text-stone-400">
-                            {acc.profile.email} • {acc.profile.occupation || 'Member'}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 px-2 py-1 rounded-md bg-amber-500/10 group-hover:bg-amber-500/20 transition-colors flex items-center gap-1">
-                        Sign In <ChevronRight className="w-3 h-3" />
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <p className="text-center text-xs text-stone-500 dark:text-stone-400 pt-2">
+                Don't have an account yet?{' '}
+                <button
+                  type="button"
+                  onClick={() => setAuthModalTab('register')}
+                  className="font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                >
+                  Create one now
+                </button>
+              </p>
             </div>
           )}
 
@@ -458,96 +528,154 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                 <button
                   type="button"
                   onClick={() => setSignupStep(1)}
-                  className={`flex items-center gap-2 text-xs font-semibold ${
+                  className={`flex items-center gap-2 text-xs font-semibold cursor-pointer ${
                     signupStep === 1
                       ? 'text-amber-600 dark:text-amber-400'
-                      : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
+                      : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
                   }`}
                 >
-                  <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center text-[11px]">
+                  <span
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                      signupStep === 1
+                        ? 'bg-amber-500 text-stone-950 font-bold'
+                        : 'bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400'
+                    }`}
+                  >
                     1
                   </span>
                   <span>Credentials</span>
                 </button>
-                <div className="h-0.5 flex-1 mx-3 bg-stone-200 dark:bg-stone-800" />
+
+                <div className="h-0.5 flex-1 mx-3 bg-stone-200 dark:bg-stone-800"></div>
+
                 <button
                   type="button"
                   onClick={() => {
-                    if (signupFullName && signupUsername && signupEmail) {
+                    if (signupFullName && signupEmail && signupPassword.length >= 6) {
                       setSignupStep(2);
                     }
                   }}
-                  className={`flex items-center gap-2 text-xs font-semibold ${
+                  className={`flex items-center gap-2 text-xs font-semibold cursor-pointer ${
                     signupStep === 2
                       ? 'text-amber-600 dark:text-amber-400'
-                      : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
+                      : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
                   }`}
                 >
-                  <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center text-[11px]">
+                  <span
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                      signupStep === 2
+                        ? 'bg-amber-500 text-stone-950 font-bold'
+                        : 'bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400'
+                    }`}
+                  >
                     2
                   </span>
-                  <span>Profile & Image</span>
+                  <span>Profile & Schedule</span>
                 </button>
               </div>
 
-              <form onSubmit={handleSignupSubmit}>
-                {signupError && (
-                  <div className="mb-4 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-2.5 text-xs text-rose-800 dark:text-rose-300">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <span>{signupError}</span>
-                  </div>
-                )}
+              {signupError && (
+                <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-2.5 text-xs text-rose-800 dark:text-rose-300">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{signupError}</span>
+                </div>
+              )}
 
-                {/* STEP 1: CREDENTIALS */}
+              {/* Quick Google Sign Up Option */}
+              {signupStep === 1 && (
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={googleLoading}
+                    className="w-full py-2.5 px-4 rounded-xl border border-stone-300 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 text-stone-800 dark:text-stone-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-colors shadow-xs cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+                      <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.97 0 12s.45 3.84 1.25 5.42l4.03-3.15z"/>
+                      <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                    </svg>
+                    <span>Sign up fast with Google</span>
+                  </button>
+
+                  <div className="flex items-center my-3.5">
+                    <div className="flex-grow border-t border-stone-200 dark:border-stone-800"></div>
+                    <span className="flex-shrink mx-3 text-stone-400 text-[11px] uppercase tracking-wider font-semibold">
+                      or with email
+                    </span>
+                    <div className="flex-grow border-t border-stone-200 dark:border-stone-800"></div>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleSignupSubmit} className="space-y-4">
                 {signupStep === 1 && (
                   <div className="space-y-3.5">
-                    <div>
-                      <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                        Full Name <span className="text-rose-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          required
-                          value={signupFullName}
-                          onChange={(e) => {
-                            setSignupFullName(e.target.value);
-                            if (!signupUsername) {
-                              setSignupUsername(
-                                e.target.value
-                                  .toLowerCase()
-                                  .replace(/[^a-z0-9]/g, '')
-                                  .slice(0, 16)
-                              );
-                            }
-                          }}
-                          placeholder="e.g. Ahsanur Rahaman"
-                          className="w-full pl-10 pr-4 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-stone-900 dark:text-stone-100 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                        />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                          Full Name *
+                        </label>
+                        <div className="relative">
+                          <User className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            required
+                            value={signupFullName}
+                            onChange={(e) => {
+                              setSignupFullName(e.target.value);
+                              if (!signupUsername) {
+                                setSignupUsername(
+                                  e.target.value.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')
+                                );
+                              }
+                            }}
+                            placeholder="John Doe"
+                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                          Username *
+                        </label>
+                        <div className="relative">
+                          <span className="text-xs text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 font-mono">@</span>
+                          <input
+                            type="text"
+                            required
+                            value={signupUsername}
+                            onChange={(e) => setSignupUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+                            placeholder="johndoe"
+                            className="w-full pl-8 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                          />
+                        </div>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                          Username <span className="text-rose-500">*</span>
+                          Email Address *
                         </label>
-                        <input
-                          type="text"
-                          required
-                          value={signupUsername}
-                          onChange={(e) =>
-                            setSignupUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''))
-                          }
-                          placeholder="ahsanur"
-                          className="w-full px-3.5 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-stone-900 dark:text-stone-100 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                        />
+                        <div className="relative">
+                          <Mail className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="email"
+                            required
+                            value={signupEmail}
+                            onChange={(e) => setSignupEmail(e.target.value)}
+                            placeholder="john@example.com"
+                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                          Phone Number
+                          Phone (Optional)
                         </label>
                         <div className="relative">
                           <Smartphone className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -556,47 +684,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                             value={signupPhone}
                             onChange={(e) => setSignupPhone(e.target.value)}
                             placeholder="+1 (555) 000-0000"
-                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-stone-900 dark:text-stone-100 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
                           />
                         </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                        Email Address <span className="text-rose-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="email"
-                          required
-                          value={signupEmail}
-                          onChange={(e) => setSignupEmail(e.target.value)}
-                          placeholder="user@example.com"
-                          className="w-full pl-10 pr-4 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-stone-900 dark:text-stone-100 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                        />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                          Password <span className="text-rose-500">*</span>
+                          Password (min 6 chars) *
                         </label>
                         <div className="relative">
+                          <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
                             type={showSignupPassword ? 'text' : 'password'}
                             required
                             value={signupPassword}
                             onChange={(e) => setSignupPassword(e.target.value)}
-                            placeholder="Min 6 characters"
-                            className="w-full px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-stone-900 dark:text-stone-100 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none font-mono"
+                            placeholder="••••••••"
+                            className="w-full pl-9 pr-8 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
                           />
                           <button
                             type="button"
                             onClick={() => setShowSignupPassword(!showSignupPassword)}
-                            className="p-1 text-stone-400 hover:text-stone-600 absolute right-2.5 top-1/2 -translate-y-1/2"
+                            className="p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer"
                           >
                             {showSignupPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
@@ -605,81 +717,63 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
 
                       <div>
                         <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                          Confirm Password <span className="text-rose-500">*</span>
+                          Confirm Password *
                         </label>
-                        <input
-                          type={showSignupPassword ? 'text' : 'password'}
-                          required
-                          value={signupConfirmPassword}
-                          onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                          placeholder="Repeat password"
-                          className="w-full px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-stone-900 dark:text-stone-100 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none font-mono"
-                        />
+                        <div className="relative">
+                          <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type={showSignupPassword ? 'text' : 'password'}
+                            required
+                            value={signupConfirmPassword}
+                            onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                          />
+                        </div>
                       </div>
                     </div>
 
                     {/* Password Strength Meter */}
                     {signupPassword && (
-                      <div className="p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200/60 dark:border-stone-800">
-                        <div className="flex items-center justify-between text-[11px] font-medium text-stone-600 dark:text-stone-400 mb-1.5">
-                          <span>Password Strength:</span>
-                          <span
-                            className={
-                              passwordScore <= 1
-                                ? 'text-rose-600 font-semibold'
-                                : passwordScore === 2
-                                ? 'text-amber-600 font-semibold'
-                                : 'text-emerald-600 font-semibold'
-                            }
-                          >
-                            {passwordScore <= 1
-                              ? 'Weak'
-                              : passwordScore === 2
-                              ? 'Fair'
-                              : passwordScore === 3
-                              ? 'Good'
-                              : 'Strong'}
-                          </span>
+                      <div className="pt-1">
+                        <div className="flex gap-1 h-1 w-full bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
+                          <div className={`h-full flex-1 ${passwordScore >= 1 ? 'bg-rose-500' : ''}`} />
+                          <div className={`h-full flex-1 ${passwordScore >= 2 ? 'bg-amber-500' : ''}`} />
+                          <div className={`h-full flex-1 ${passwordScore >= 3 ? 'bg-emerald-500' : ''}`} />
+                          <div className={`h-full flex-1 ${passwordScore >= 4 ? 'bg-emerald-600' : ''}`} />
                         </div>
-                        <div className="grid grid-cols-4 gap-1 h-1.5 rounded-full overflow-hidden bg-stone-200 dark:bg-stone-700">
-                          <div
-                            className={`h-full ${
-                              passwordScore >= 1
-                                ? passwordScore <= 1
-                                  ? 'bg-rose-500'
-                                  : passwordScore === 2
-                                  ? 'bg-amber-500'
-                                  : 'bg-emerald-500'
-                                : 'bg-transparent'
-                            }`}
-                          />
-                          <div
-                            className={`h-full ${
-                              passwordScore >= 2
-                                ? passwordScore === 2
-                                  ? 'bg-amber-500'
-                                  : 'bg-emerald-500'
-                                : 'bg-transparent'
-                            }`}
-                          />
-                          <div
-                            className={`h-full ${
-                              passwordScore >= 3 ? 'bg-emerald-500' : 'bg-transparent'
-                            }`}
-                          />
-                          <div
-                            className={`h-full ${
-                              passwordScore >= 4 ? 'bg-emerald-500' : 'bg-transparent'
-                            }`}
-                          />
+                        <div className="text-[10px] text-stone-400 mt-1">
+                          Strength:{' '}
+                          {passwordScore <= 1
+                            ? 'Weak'
+                            : passwordScore <= 2
+                            ? 'Moderate'
+                            : passwordScore === 3
+                            ? 'Strong'
+                            : 'Very Secure'}
                         </div>
                       </div>
                     )}
 
                     <button
                       type="button"
-                      disabled={!signupFullName || !signupUsername || !signupEmail || !signupPassword}
                       onClick={() => {
+                        if (!signupFullName.trim()) {
+                          setSignupError('Please enter your full name.');
+                          return;
+                        }
+                        if (!signupUsername.trim()) {
+                          setSignupError('Please choose a unique username.');
+                          return;
+                        }
+                        if (!signupEmail.trim() || !signupEmail.includes('@')) {
+                          setSignupError('Please enter a valid email address.');
+                          return;
+                        }
+                        if (signupPassword.length < 6) {
+                          setSignupError('Password must be at least 6 characters.');
+                          return;
+                        }
                         if (signupPassword !== signupConfirmPassword) {
                           setSignupError('Passwords do not match.');
                           return;
@@ -687,26 +781,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                         setSignupError(null);
                         setSignupStep(2);
                       }}
-                      className="w-full mt-3 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                      className="w-full mt-2 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
                     >
-                      <span>Proceed to Profile & Photo</span>
+                      <span>Continue to Profile Setup</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
                 )}
 
-                {/* STEP 2: PROFILE & STORAGE SYSTEM IMAGE UPLOAD */}
                 {signupStep === 2 && (
                   <div className="space-y-4">
                     {/* Image Input from Storage System */}
                     <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-800">
                       <label className="block text-xs font-bold text-stone-900 dark:text-stone-100 mb-2 flex items-center gap-1.5">
                         <Upload className="w-4 h-4 text-amber-500" />
-                        <span>Input Profile Image from Storage System</span>
+                        <span>Profile Picture</span>
                       </label>
 
                       <div className="flex flex-col sm:flex-row items-center gap-4">
-                        {/* Current Preview */}
                         <div className="relative shrink-0">
                           <img
                             src={avatarPreview}
@@ -714,18 +806,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                             className="w-20 h-20 rounded-2xl object-cover ring-2 ring-amber-500/80 shadow-md"
                           />
                           {avatarStorageType === 'uploaded_device' && (
-                            <span
-                              className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-emerald-500 text-stone-950 text-[10px] font-bold rounded-md shadow-xs"
-                              title="Loaded from local storage system"
-                            >
+                            <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-emerald-500 text-stone-950 text-[10px] font-bold rounded-md shadow-xs">
                               Device
                             </span>
                           )}
                         </div>
 
-                        {/* Upload Controls */}
                         <div className="flex-1 w-full text-center sm:text-left">
-                          {/* Hidden File Input */}
                           <input
                             ref={fileInputRef}
                             type="file"
@@ -734,7 +821,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                             className="hidden"
                           />
 
-                          {/* Drop Zone / Browse Button */}
                           <div
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={handleDrop}
@@ -746,7 +832,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                               <span>Browse Device Storage or Drop Image</span>
                             </div>
                             <p className="text-[10px] text-stone-400 mt-1">
-                              Supports JPG, PNG, WEBP • Auto-compressed for instant loading
+                              Supports JPG, PNG, WEBP • Auto-compressed for cloud sync
                             </p>
                           </div>
 
@@ -758,171 +844,153 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                           )}
 
                           {imageError && (
-                            <div className="mt-1 text-[11px] text-rose-500">{imageError}</div>
+                            <p className="text-xs text-rose-500 mt-1">{imageError}</p>
                           )}
                         </div>
                       </div>
 
-                      {/* Preset Avatars Carousel */}
-                      <div className="mt-3 pt-3 border-t border-stone-200/80 dark:border-stone-700/80">
-                        <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 mb-2">
-                          Or select an instant avatar preset:
+                      {/* Preset Avatar Grid */}
+                      <div className="mt-3 pt-3 border-t border-stone-200 dark:border-stone-700">
+                        <div className="text-[11px] font-medium text-stone-500 dark:text-stone-400 mb-2">
+                          Or select a curated avatar:
                         </div>
                         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                          {PRESET_AVATARS.map((preset) => (
+                          {PRESET_AVATARS.map((av, idx) => (
                             <button
-                              key={preset.id}
+                              key={idx}
                               type="button"
                               onClick={() => {
-                                setAvatarPreview(preset.url);
+                                setAvatarPreview(av);
                                 setAvatarStorageType('preset');
                                 setUploadedFileName(null);
                               }}
-                              className={`shrink-0 rounded-xl p-0.5 border-2 transition-all ${
-                                avatarPreview === preset.url
-                                  ? 'border-amber-500 scale-105 shadow-sm'
-                                  : 'border-transparent hover:border-stone-300 dark:hover:border-stone-600'
+                              className={`w-9 h-9 rounded-xl overflow-hidden ring-2 transition-all shrink-0 cursor-pointer ${
+                                avatarPreview === av
+                                  ? 'ring-amber-500 scale-105'
+                                  : 'ring-transparent hover:ring-stone-300'
                               }`}
                             >
-                              <img
-                                src={preset.url}
-                                alt={preset.label}
-                                className="w-9 h-9 rounded-lg object-cover"
-                              />
+                              <img src={av} alt="Avatar option" className="w-full h-full object-cover" />
                             </button>
                           ))}
                         </div>
                       </div>
                     </div>
 
-                    {/* Personal Role & Location */}
+                    {/* Bio & Work Schedule */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
                           Role / Occupation
                         </label>
                         <div className="relative">
-                          <Briefcase className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <Briefcase className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
                             type="text"
                             value={signupOccupation}
                             onChange={(e) => setSignupOccupation(e.target.value)}
-                            placeholder="e.g. Full-Stack Engineer"
-                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-stone-900 dark:text-stone-100 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                            placeholder="Software Engineer, Designer, Student"
+                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
                           />
                         </div>
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                          City & Country
+                          Location
                         </label>
                         <div className="relative">
-                          <MapPin className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <MapPin className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
                             type="text"
                             value={signupLocation}
                             onChange={(e) => setSignupLocation(e.target.value)}
-                            placeholder="e.g. Boston, MA"
-                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-stone-900 dark:text-stone-100 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                            placeholder="San Francisco, CA"
+                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
                           />
                         </div>
                       </div>
                     </div>
 
-                    {/* Productivity & Work Preferences */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                          Daily Goal (Hours)
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={16}
-                          value={signupDailyHours}
-                          onChange={(e) => setSignupDailyHours(Number(e.target.value))}
-                          className="w-full px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-xs font-semibold"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                          Start Work
-                        </label>
-                        <input
-                          type="time"
-                          value={signupStartTime}
-                          onChange={(e) => setSignupStartTime(e.target.value)}
-                          className="w-full px-2 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-xs"
-                        />
-                      </div>
-
-                      <div className="col-span-2 sm:col-span-1">
-                        <label className="block text-[11px] font-semibold text-stone-600 dark:text-stone-400 mb-1">
-                          End Work
-                        </label>
-                        <input
-                          type="time"
-                          value={signupEndTime}
-                          onChange={(e) => setSignupEndTime(e.target.value)}
-                          className="w-full px-2 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Bio */}
                     <div>
                       <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                        Personal Bio / Daily Philosophy
+                        Short Bio & Mission
                       </label>
                       <textarea
                         rows={2}
                         value={signupBio}
                         onChange={(e) => setSignupBio(e.target.value)}
-                        placeholder="Write a brief personal intro or habit objective..."
-                        className="w-full px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-stone-900 dark:text-stone-100 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none resize-none"
+                        placeholder="Discipline over motivation. Focused on deep work."
+                        className="w-full px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
                       />
                     </div>
 
-                    {/* Terms Checkbox */}
-                    <div className="pt-1">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                          Daily Focus Goal
+                        </label>
+                        <select
+                          value={signupDailyHours}
+                          onChange={(e) => setSignupDailyHours(Number(e.target.value))}
+                          className="w-full px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        >
+                          <option value={2}>2 Hours / Day</option>
+                          <option value={4}>4 Hours / Day (Standard)</option>
+                          <option value={6}>6 Hours / Day (High Output)</option>
+                          <option value={8}>8 Hours / Day (Maximum)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                          Work Window End
+                        </label>
+                        <input
+                          type="time"
+                          value={signupEndTime}
+                          onChange={(e) => setSignupEndTime(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
                       <label className="flex items-start gap-2 cursor-pointer text-xs text-stone-600 dark:text-stone-400">
                         <input
                           type="checkbox"
                           checked={agreedTerms}
                           onChange={(e) => setAgreedTerms(e.target.checked)}
-                          className="w-4 h-4 mt-0.5 rounded border-stone-300 text-amber-500 accent-amber-500"
+                          className="w-4 h-4 mt-0.5 rounded border-stone-300 text-amber-500 focus:ring-amber-400 accent-amber-500"
                         />
                         <span>
-                          I agree to local data persistence rules, cryptographically verified progress tracking, and privacy safeguards.
+                          I agree to securely synchronize my tasks and track focus time across devices.
                         </span>
                       </label>
                     </div>
 
-                    <div className="flex items-center gap-3 pt-2">
+                    <div className="flex gap-2 pt-2">
                       <button
                         type="button"
                         onClick={() => setSignupStep(1)}
-                        className="py-2.5 px-4 rounded-xl border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 font-semibold text-xs hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                        className="py-2.5 px-4 rounded-xl border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer transition-colors"
                       >
                         Back
                       </button>
-
                       <button
                         type="submit"
-                        disabled={signupLoading || !agreedTerms}
-                        className="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-stone-950 font-semibold text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                        disabled={signupLoading}
+                        className="flex-1 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md disabled:opacity-70"
                       >
                         {signupLoading ? (
                           <>
                             <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>Creating Profile...</span>
+                            <span>Creating Account...</span>
                           </>
                         ) : (
                           <>
-                            <CheckCircle2 className="w-4 h-4" />
                             <span>Complete Registration</span>
+                            <CheckCircle2 className="w-4 h-4" />
                           </>
                         )}
                       </button>
@@ -933,88 +1001,89 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
             </div>
           )}
 
-          {/* ======================= SWITCH ACCOUNTS TAB ======================= */}
+          {/* ======================= ACCOUNT / SWITCH TAB ======================= */}
           {authModalTab === 'switch' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
-                    Registered Accounts on this Device
-                  </h3>
-                  <p className="text-xs text-stone-500 dark:text-stone-400">
-                    Switch active profile seamlessly without losing your track records.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthModalTab('register');
-                    setSignupStep(1);
-                  }}
-                  className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold transition-colors flex items-center gap-1"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Add Account</span>
-                </button>
+              <div className="text-xs text-stone-500 dark:text-stone-400">
+                Manage your authenticated account or switch sessions.
               </div>
 
-              <div className="space-y-2.5">
-                {registeredAccounts.map((acc) => {
-                  const isActive = user?.id === acc.profile.id;
-                  return (
-                    <div
-                      key={acc.profile.id}
-                      className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
-                        isActive
-                          ? 'border-amber-500 bg-amber-500/5 ring-1 ring-amber-500/30'
-                          : 'border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-800/40 hover:border-stone-300 dark:hover:border-stone-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <img
-                          src={acc.profile.avatarUrl}
-                          alt={acc.profile.fullName}
-                          className="w-11 h-11 rounded-xl object-cover ring-1 ring-stone-200 dark:ring-stone-700 shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-stone-900 dark:text-stone-100 truncate">
-                              {acc.profile.fullName}
-                            </span>
-                            {isActive && (
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
-                                Active Now
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-stone-500 dark:text-stone-400 truncate">
-                            {acc.profile.email} • @{acc.profile.username}
-                          </div>
-                          <div className="text-[11px] text-stone-400 dark:text-stone-500 mt-0.5">
-                            {acc.profile.occupation || 'Standard Member'} • {acc.profile.location || 'Global'}
-                          </div>
-                        </div>
+              {user ? (
+                <div className="p-4 rounded-2xl border border-amber-500/40 bg-amber-500/5 ring-1 ring-amber-500/20 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.fullName}
+                      className="w-14 h-14 rounded-2xl object-cover ring-2 ring-amber-500/80 shadow-md shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-stone-900 dark:text-stone-100 truncate">
+                          {user.fullName}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold shrink-0">
+                          Active User
+                        </span>
                       </div>
-
-                      <div className="shrink-0">
-                        {isActive ? (
-                          <span className="p-2 rounded-xl text-emerald-600 dark:text-emerald-400 flex items-center gap-1 text-xs font-semibold">
-                            <CheckCircle2 className="w-4 h-4" />
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => switchAccount(acc.profile.id)}
-                            className="py-1.5 px-3 rounded-xl bg-stone-200 dark:bg-stone-700 hover:bg-amber-500 hover:text-stone-950 text-stone-800 dark:text-stone-200 text-xs font-semibold transition-all cursor-pointer shadow-xs"
-                          >
-                            Switch
-                          </button>
-                        )}
-                      </div>
+                      <p className="text-xs text-stone-600 dark:text-stone-400 truncate">
+                        {user.email}
+                      </p>
+                      <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-0.5 font-mono">
+                        UID: {user.id.slice(0, 12)}...
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-amber-500/20 grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-2 rounded-xl bg-white/60 dark:bg-stone-800/60">
+                      <span className="text-stone-400 block">Role</span>
+                      <span className="font-semibold text-stone-800 dark:text-stone-200">
+                        {user.occupation || 'Member'}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white/60 dark:bg-stone-800/60">
+                      <span className="text-stone-400 block">Cloud Status</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <Cloud className="w-3 h-3" /> Real-time Synced
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await logout();
+                      }}
+                      className="flex-1 py-2 px-3 rounded-xl border border-rose-300 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthModalTab('login');
+                      }}
+                      className="flex-1 py-2 px-3 rounded-xl bg-stone-200 dark:bg-stone-700 hover:bg-stone-300 dark:hover:bg-stone-600 text-stone-800 dark:text-stone-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>Sign In with Other</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-xs text-stone-500">No authenticated user session.</p>
+                  <button
+                    type="button"
+                    onClick={() => setAuthModalTab('login')}
+                    className="mt-3 py-2 px-4 rounded-xl bg-amber-500 text-stone-950 font-semibold text-xs"
+                  >
+                    Sign In to an Account
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1023,13 +1092,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
         <div className="px-6 py-3 bg-stone-50 dark:bg-stone-950/40 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-[11px] text-stone-400">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Local Storage Safe & Offline-First Persistence</span>
+            <span>256-bit Secure Encryption • Cloud Sync</span>
           </div>
-          <span>v1.2 Secure Client</span>
+          <span className="text-[10px] text-stone-400">Continuous Auto-Sync</span>
         </div>
       </div>
 
-      {/* Forgot Password Simulation Dialog */}
+      {/* Forgot Password Modal */}
       {showForgotPassword && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-md bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 p-6 shadow-2xl">
@@ -1043,7 +1112,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                   setShowForgotPassword(false);
                   setForgotSentMessage(null);
                 }}
-                className="p-1 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
+                className="p-1 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1061,7 +1130,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                     setShowForgotPassword(false);
                     setForgotSentMessage(null);
                   }}
-                  className="w-full py-2.5 rounded-xl bg-amber-500 text-stone-950 font-semibold text-xs"
+                  className="w-full py-2.5 rounded-xl bg-amber-500 text-stone-950 font-semibold text-xs cursor-pointer"
                 >
                   Return to Sign In
                 </button>
@@ -1069,33 +1138,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
             ) : (
               <div className="space-y-3">
                 <p className="text-xs text-stone-600 dark:text-stone-400">
-                  Enter your registered email address or username. A temporary secure access pass will be generated.
+                  Enter your registered email address. We'll send a password reset link to your inbox.
                 </p>
                 <input
-                  type="text"
+                  type="email"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
-                  placeholder="e.g. alex@dailytracker.app"
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-xs"
+                  placeholder="you@example.com"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
-                <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-[11px] text-amber-800 dark:text-amber-300">
-                  <strong>Default Demo Password:</strong> For seeded test accounts, the password is{' '}
-                  <code className="px-1 py-0.5 bg-amber-200 dark:bg-amber-900 rounded font-mono font-bold">
-                    password123
-                  </code>
-                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (forgotEmail) {
-                      setForgotSentMessage(
-                        `Reset instructions dispatched to ${forgotEmail}. You can also sign in with 'password123'.`
-                      );
-                    }
-                  }}
-                  className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs"
+                  disabled={forgotLoading}
+                  onClick={handleSendResetEmail}
+                  className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs cursor-pointer transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                 >
-                  Send Reset Link
+                  {forgotLoading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Sending reset link...</span>
+                    </>
+                  ) : (
+                    <span>Send Reset Link</span>
+                  )}
                 </button>
               </div>
             )}

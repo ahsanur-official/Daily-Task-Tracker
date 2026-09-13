@@ -17,13 +17,16 @@ import {
   KeyRound,
   ChevronDown,
   Sparkles,
+  Cloud,
 } from 'lucide-react';
 import { formatSecondsToDigital } from '../../utils/time';
 
 export const Header: React.FC = () => {
   const {
     user,
+    firebaseUser,
     isOnline,
+    isSyncing,
     streakInfo,
     activeTimer,
     pauseTimer,
@@ -35,6 +38,8 @@ export const Header: React.FC = () => {
     openAuthModal,
     logout,
     registeredAccounts,
+    isDark,
+    toggleTheme,
   } = useApp();
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -52,16 +57,6 @@ export const Header: React.FC = () => {
   }, []);
 
   const currentTask = activeTimer ? tasks.find((t) => t.id === activeTimer.taskId) : null;
-
-  const isCurrentlyDark =
-    user?.theme === 'dark' ||
-    (!user?.theme && typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) ||
-    (user?.theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-  const toggleTheme = () => {
-    const nextTheme = isCurrentlyDark ? 'light' : 'dark';
-    updateProfile({ theme: nextTheme });
-  };
 
   return (
     <header className="h-16 border-b border-stone-200 dark:border-stone-800 bg-white/85 dark:bg-stone-900/85 backdrop-blur-md sticky top-0 z-30">
@@ -87,16 +82,22 @@ export const Header: React.FC = () => {
             </div>
           </button>
 
-          {/* Online/Offline Badge */}
+          {/* Online/Offline & Cloud Badge */}
           {!isOnline ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+              title="Saved on local drive. Will auto-sync when online."
+            >
               <WifiOff className="w-3 h-3" />
-              <span className="hidden md:inline">Offline Mode</span>
+              <span className="hidden md:inline">Saved Locally (Offline)</span>
             </span>
           ) : (
-            <span className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800">
-              <Wifi className="w-3 h-3 text-emerald-500" />
-              <span>Synced</span>
+            <span
+              className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium text-stone-600 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 border border-stone-200/60 dark:border-stone-700/60"
+              title={isSyncing ? 'Synchronizing with cloud...' : 'Real-time cloud sync active'}
+            >
+              <Cloud className={`w-3 h-3 ${isSyncing ? 'text-amber-500 animate-pulse' : 'text-emerald-500'}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Cloud Synced'}</span>
             </span>
           )}
         </div>
@@ -184,10 +185,10 @@ export const Header: React.FC = () => {
           <button
             onClick={toggleTheme}
             aria-label="Toggle color theme"
-            className="w-9 h-9 rounded-xl border border-stone-200 dark:border-stone-800 flex items-center justify-center text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-            title={isCurrentlyDark ? 'Switch to Light mode' : 'Switch to Dark mode'}
+            className="w-9 h-9 rounded-xl border border-stone-200 dark:border-stone-800 flex items-center justify-center text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+            title={isDark ? 'Switch to Light mode' : 'Switch to Dark mode'}
           >
-            {isCurrentlyDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
           </button>
 
           {/* User Profile / Account Menu */}
@@ -196,7 +197,7 @@ export const Header: React.FC = () => {
               <button
                 onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
                 className="flex items-center gap-2 pl-1.5 pr-2 py-1 rounded-2xl hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors group cursor-pointer"
-                title={`${user.fullName} (@${user.username}) - Click for account menu`}
+                title={`${user.fullName} (@${user.username}) - Click for account options`}
               >
                 <img
                   src={user.avatarUrl}
@@ -204,9 +205,11 @@ export const Header: React.FC = () => {
                   className="w-8 h-8 rounded-xl object-cover ring-2 ring-stone-200 dark:ring-stone-700 group-hover:ring-amber-500 transition-all"
                 />
                 <div className="hidden lg:flex flex-col text-left">
-                  <span className="text-xs font-bold text-stone-800 dark:text-stone-200 leading-tight truncate max-w-[120px]">
-                    {user.fullName}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-stone-800 dark:text-stone-200 leading-tight truncate max-w-[120px]">
+                      {user.fullName}
+                    </span>
+                  </div>
                   <span className="text-[10px] text-stone-400 leading-tight">
                     @{user.username}
                   </span>
@@ -225,14 +228,14 @@ export const Header: React.FC = () => {
                       className="w-11 h-11 rounded-2xl object-cover ring-2 ring-amber-500/50"
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">
-                        {user.fullName}
+                      <div className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate flex items-center gap-1.5">
+                        <span>{user.fullName}</span>
                       </div>
                       <div className="text-[11px] text-stone-500 dark:text-stone-400 truncate">
                         {user.email}
                       </div>
                       <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                        {user.accountTier || 'Master Disciplinarian'}
+                        {user.accountTier || 'Member'}
                       </span>
                     </div>
                   </div>
@@ -244,7 +247,7 @@ export const Header: React.FC = () => {
                         setIsAccountMenuOpen(false);
                         setActiveView('profile');
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors text-left cursor-pointer"
                     >
                       <User className="w-4 h-4 text-amber-500" />
                       <span>View Detailed Profile</span>
@@ -255,7 +258,7 @@ export const Header: React.FC = () => {
                         setIsAccountMenuOpen(false);
                         openAuthModal('switch');
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors text-left"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors text-left cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5">
                         <Users className="w-4 h-4 text-stone-400" />
@@ -266,25 +269,25 @@ export const Header: React.FC = () => {
                       </span>
                     </button>
 
-                    <button
-                      onClick={() => {
-                        setIsAccountMenuOpen(false);
-                        openAuthModal('register');
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors text-left"
-                    >
-                      <UserPlus className="w-4 h-4 text-stone-400" />
-                      <span>Register Another Account</span>
-                    </button>
+                        <button
+                          onClick={() => {
+                            setIsAccountMenuOpen(false);
+                            openAuthModal('register');
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors text-left cursor-pointer"
+                        >
+                          <UserPlus className="w-4 h-4 text-stone-400" />
+                          <span>Register Another Account</span>
+                        </button>
 
-                    <div className="my-1 border-t border-stone-100 dark:border-stone-800" />
+                        <div className="my-1 border-t border-stone-100 dark:border-stone-800" />
 
                     <button
                       onClick={() => {
                         setIsAccountMenuOpen(false);
                         logout();
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors text-left cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />
                       <span>Sign Out</span>

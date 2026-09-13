@@ -162,8 +162,11 @@ export interface Certificate {
 
 export interface SyncQueueItem {
   id: string;
-  type: 'time_session' | 'goal_update' | 'task_update' | 'certificate_issue';
-  payload: any;
+  type?: 'time_session' | 'goal_update' | 'task_update' | 'certificate_issue';
+  collection: 'users' | 'goals' | 'tasks' | 'sessions' | 'certificates';
+  action: 'set' | 'update' | 'delete';
+  docId: string;
+  payload?: any;
   createdAt: number;
 }
 

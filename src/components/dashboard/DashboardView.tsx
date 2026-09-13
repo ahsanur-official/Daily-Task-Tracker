@@ -24,6 +24,8 @@ import {
 } from '../../utils/time';
 import { DailyQuote } from './DailyQuote';
 import { StreakHeatmap } from './StreakHeatmap';
+import { TaskCalendarModal } from '../calendar/TaskCalendarModal';
+import { Task } from '../../types';
 
 interface DashboardViewProps {
   onOpenCreateGoal: () => void;
@@ -49,6 +51,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
   } = useApp();
 
   const [activeTaskNotesId, setActiveTaskNotesId] = useState<string | null>(null);
+  const [selectedTaskForCalendar, setSelectedTaskForCalendar] = useState<Task | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -436,12 +439,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
 
                     {/* Right: Actions */}
                     <div className="flex items-center gap-2 shrink-0">
+                      {/* Individual Task Calendar button */}
+                      <button
+                        onClick={() => setSelectedTaskForCalendar(taskObj || null)}
+                        className="p-2 rounded-xl text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
+                        title="View Individual Task Continuity Calendar & Missed Days"
+                      >
+                        <Calendar className="w-4 h-4 text-amber-500" />
+                      </button>
+
                       {/* Notes toggle button */}
                       <button
                         onClick={() =>
                           setActiveTaskNotesId(activeTaskNotesId === tp.taskId ? null : tp.taskId)
                         }
-                        className="p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                        className="p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
                         title="Task Notes"
                       >
                         <BookOpen className="w-4 h-4" />
@@ -642,6 +654,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
             })}
         </div>
       </div>
+
+      {/* Individual Task Calendar Modal */}
+      {selectedTaskForCalendar && (
+        <TaskCalendarModal
+          task={selectedTaskForCalendar}
+          onClose={() => setSelectedTaskForCalendar(null)}
+        />
+      )}
     </div>
   );
 };

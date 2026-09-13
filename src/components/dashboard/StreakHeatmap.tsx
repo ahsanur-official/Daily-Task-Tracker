@@ -287,8 +287,8 @@ export const StreakHeatmap: React.FC<StreakHeatmapProps> = ({ className = '' }) 
       {/* 3. Heatmap Grid Layout */}
       <div className="space-y-3">
         {/* Heatmap Matrix: Responsive Grid */}
-        <div className="overflow-x-auto pb-1">
-          <div className="min-w-[340px]">
+        <div className="overflow-x-auto sm:overflow-visible pb-1">
+          <div className="min-w-[340px] sm:min-w-0">
             {/* Weekday headers for 7-column calendar representation */}
             <div className="grid grid-cols-7 gap-2 mb-2 text-center">
               {weekdays.map((w, idx) => (
@@ -313,11 +313,26 @@ export const StreakHeatmap: React.FC<StreakHeatmapProps> = ({ className = '' }) 
                   (_, i) => <div key={`empty-${i}`} className="aspect-square rounded-xl opacity-0" />
                 )}
 
-              {daysData.map((item) => {
+              {daysData.map((item, index) => {
                 const dayNum = getDayNumber(item.dateStr);
                 const isSelected = inspectedDate === item.dateStr;
                 const isHovered = hoveredDate === item.dateStr;
                 const intensityClasses = getIntensityStyles(item);
+
+                // Calculate position in 7-column grid to prevent tooltip from clipping on edges
+                const emptyOffset = viewRange === 'currentMonth' ? getWeekdayIndex(daysData[0]?.dateStr || todayDate) : 0;
+                const gridIndex = emptyOffset + index;
+                const colIndex = gridIndex % 7;
+                const rowIndex = Math.floor(gridIndex / 7);
+
+                const horizontalPositionClass =
+                  colIndex <= 1
+                    ? 'left-0'
+                    : colIndex >= 5
+                    ? 'right-0'
+                    : 'left-1/2 -translate-x-1/2';
+
+                const verticalPositionClass = rowIndex === 0 ? 'top-full mt-2' : 'bottom-full mb-2';
 
                 return (
                   <div key={item.dateStr} className="relative group">
@@ -356,7 +371,7 @@ export const StreakHeatmap: React.FC<StreakHeatmapProps> = ({ className = '' }) 
 
                     {/* Rich Floating Tooltip on Hover (Desktop) */}
                     {isHovered && !inspectedDate && (
-                      <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-30 pointer-events-none w-48 p-2.5 rounded-xl bg-stone-900 dark:bg-stone-800 text-white text-xs shadow-xl border border-stone-700/80 animate-in fade-in duration-150">
+                      <div className={`hidden sm:block absolute ${verticalPositionClass} ${horizontalPositionClass} z-30 pointer-events-none w-52 p-2.5 rounded-xl bg-stone-900 dark:bg-stone-800 text-white text-xs shadow-xl border border-stone-700/80 animate-in fade-in duration-150`}>
                         <div className="font-bold border-b border-stone-700/60 pb-1 mb-1 text-[11px] text-stone-300">
                           {formatDateLabel(item.dateStr)} {item.isToday && '(Today)'}
                         </div>

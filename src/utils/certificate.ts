@@ -1,5 +1,15 @@
 import { Certificate } from '../types';
 import { formatSecondsToHuman, formatFullDateLabel } from './time';
+import QRCode from 'qrcode';
+
+export function getCertificateVerifyUrl(certId: string): string {
+  if (typeof window !== 'undefined' && window.location) {
+    const origin = window.location.origin;
+    const pathname = window.location.pathname;
+    return `${origin}${pathname}?verify=${encodeURIComponent(certId)}`;
+  }
+  return `https://dailytracker.app/?verify=${encodeURIComponent(certId)}`;
+}
 
 export function renderCertificateToCanvas(
   cert: Certificate,
@@ -213,14 +223,63 @@ export function renderCertificateToCanvas(
   ctx.fillStyle = secondaryText;
   ctx.fillText('Date of Completion', 140, footerY + 30);
 
-  // Center: Official Verification Seal Text
+  // Center: Official Verification QR Code & Seal
+  const verifyUrl = getCertificateVerifyUrl(cert.id);
+  const qrSize = 104;
+  const qrX = centerX - qrSize / 2;
+  const qrY = footerY - 70;
+
+  // White contrast plate for QR code
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(qrX - 8, qrY - 8, qrSize + 16, qrSize + 16, 8);
+  } else {
+    ctx.rect(qrX - 8, qrY - 8, qrSize + 16, qrSize + 16);
+  }
+  ctx.fill();
+  ctx.strokeStyle = accentColor;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Draw QR code matrix
+  try {
+    const qr = QRCode.create(verifyUrl, { errorCorrectionLevel: 'M' });
+    const moduleCount = qr.modules.size;
+    const cellSize = qrSize / moduleCount;
+
+    ctx.fillStyle = '#0f172a'; // Crisp dark
+    for (let row = 0; row < moduleCount; row++) {
+      for (let col = 0; col < moduleCount; col++) {
+        if (qr.modules.get(row, col)) {
+          ctx.fillRect(
+            qrX + col * cellSize,
+            qrY + row * cellSize,
+            cellSize + 0.3,
+            cellSize + 0.3
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error drawing QR code to canvas:', err);
+  }
+
+  // Label under QR Code
   ctx.textAlign = 'center';
-  ctx.font = 'bold 13px monospace';
+  ctx.font = 'bold 11px monospace';
+  ctx.letterSpacing = '1px';
   ctx.fillStyle = accentColor;
-  ctx.fillText(`VERIFIED ID: ${cert.id}`, centerX, footerY + 10);
-  ctx.font = '12px monospace';
+  ctx.fillText('SCAN TO VERIFY AUTHENTICITY', centerX, qrY + qrSize + 22);
+
+  ctx.font = 'bold 12px monospace';
+  ctx.letterSpacing = '0px';
+  ctx.fillStyle = primaryText;
+  ctx.fillText(`ID: ${cert.id}`, centerX, qrY + qrSize + 38);
+
+  ctx.font = '10px monospace';
   ctx.fillStyle = secondaryText;
-  ctx.fillText(`CODE: ${cert.verificationCode}`, centerX, footerY + 30);
+  ctx.fillText(`CODE: ${cert.verificationCode}`, centerX, qrY + qrSize + 52);
 
   // Right side: Authenticated Signature
   ctx.textAlign = 'right';
@@ -241,7 +300,7 @@ export function renderCertificateToCanvas(
   ctx.textAlign = 'center';
   ctx.font = '11px sans-serif';
   ctx.fillStyle = secondaryText;
-  ctx.fillText(`Verify authenticity online at dailytracker.app/verify/${cert.id}`, centerX, h - 80);
+  ctx.fillText(`Verify authenticity online at ${verifyUrl}`, centerX, h - 50);
 
   ctx.restore();
 }

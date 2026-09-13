@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   X,
@@ -13,9 +13,10 @@ import {
   AlertCircle,
   FileText,
 } from 'lucide-react';
-import { Goal } from '../../types';
+import { Goal, Task } from '../../types';
 import { formatSecondsToHuman, formatFullDateLabel, getDaysDifference } from '../../utils/time';
 import { evaluateGoalProgress } from '../../utils/recovery';
+import { TaskCalendarModal } from '../calendar/TaskCalendarModal';
 
 interface GoalDetailModalProps {
   goal: Goal | null;
@@ -35,6 +36,8 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
     setActiveView,
     setTargetVerifyId,
   } = useApp();
+
+  const [selectedTaskForCalendar, setSelectedTaskForCalendar] = useState<Task | null>(null);
 
   if (!goal) return null;
 
@@ -192,19 +195,30 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
               {goalTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-700 flex items-center justify-between text-xs"
+                  className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                 >
                   <div>
                     <span className="font-bold text-stone-900 dark:text-stone-100 text-sm block">
                       {task.title}
                     </span>
                     {task.description && (
-                      <span className="text-stone-500 dark:text-stone-400">{task.description}</span>
+                      <span className="text-stone-500 dark:text-stone-400 block mt-0.5">{task.description}</span>
                     )}
                   </div>
-                  <span className="font-mono font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300">
-                    {task.requiredDurationMinutes} mins/day
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300">
+                      {task.requiredDurationMinutes} mins/day
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTaskForCalendar(task)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 font-semibold transition-colors cursor-pointer"
+                      title="View Task Calendar (Continuity & Missed Days)"
+                    >
+                      <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Calendar</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -300,6 +314,15 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
           </div>
         </div>
       </div>
+
+      {/* Individual Task Calendar Modal */}
+      {selectedTaskForCalendar && (
+        <TaskCalendarModal
+          task={selectedTaskForCalendar}
+          goal={goal}
+          onClose={() => setSelectedTaskForCalendar(null)}
+        />
+      )}
     </div>
   );
 };

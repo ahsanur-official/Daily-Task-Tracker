@@ -15,6 +15,8 @@ import {
   Users,
   LogOut,
   KeyRound,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 interface MobileNavProps {
@@ -23,7 +25,7 @@ interface MobileNavProps {
 }
 
 export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMore }) => {
-  const { activeView, setActiveView, user, openAuthModal, logout, streakInfo } = useApp();
+  const { activeView, setActiveView, user, openAuthModal, logout, streakInfo, isDark, toggleTheme } = useApp();
   const [isVisible, setIsVisible] = useState(true);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
@@ -101,7 +103,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                 setActiveView(item.id);
                 setIsMoreMenuOpen(false);
               }}
-              className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] font-medium transition-all ${
+              className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] font-medium transition-all cursor-pointer ${
                 isActive
                   ? 'text-emerald-600 dark:text-emerald-400 font-bold scale-105'
                   : 'text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
@@ -122,7 +124,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
               setIsMoreMenuOpen(!isMoreMenuOpen);
             }
           }}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] font-medium transition-all ${
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[10px] font-medium transition-all cursor-pointer ${
             isMoreMenuOpen || ['profile', 'settings', 'verify'].includes(activeView)
               ? 'text-emerald-600 dark:text-emerald-400 font-bold'
               : 'text-stone-500 dark:text-stone-400'
@@ -137,7 +139,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
       {isMoreMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-xs flex flex-col justify-end animate-fadeIn">
           {/* Backdrop dismiss */}
-          <div className="flex-1" onClick={() => setIsMoreMenuOpen(false)} />
+          <div className="flex-1 cursor-pointer" onClick={() => setIsMoreMenuOpen(false)} />
 
           <div className="bg-white dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 rounded-t-3xl p-5 shadow-2xl space-y-4 max-h-[80vh] overflow-y-auto pb-8">
             {/* Header & Close */}
@@ -160,7 +162,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
 
               <button
                 onClick={() => setIsMoreMenuOpen(false)}
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -173,7 +175,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                   setIsMoreMenuOpen(false);
                   onOpenCreateGoal();
                 }}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-amber-500 text-stone-950 font-bold text-xs shadow-sm hover:bg-amber-400 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-amber-500 text-stone-950 font-bold text-xs shadow-sm hover:bg-amber-400 transition-colors cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Create New Goal</span>
@@ -187,7 +189,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                   setActiveView('profile');
                   setIsMoreMenuOpen(false);
                 }}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-left cursor-pointer"
               >
                 <User className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>My Profile & Device Photo</span>
@@ -198,7 +200,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                   setActiveView('verify');
                   setIsMoreMenuOpen(false);
                 }}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-left cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4 text-stone-400" />
                 <span>Verify Certificate ID</span>
@@ -209,10 +211,23 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                   setActiveView('settings');
                   setIsMoreMenuOpen(false);
                 }}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-left cursor-pointer"
               >
                 <Settings className="w-4 h-4 text-stone-400" />
                 <span>Preferences & Storage Sync</span>
+              </button>
+
+              <button
+                onClick={() => toggleTheme()}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-stone-400" />}
+                  <span>Theme: {isDark ? 'Dark Mode' : 'Light Mode'}</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 uppercase">
+                  {isDark ? 'Dark' : 'Light'}
+                </span>
               </button>
             </div>
 
@@ -240,7 +255,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                         setIsMoreMenuOpen(false);
                         openAuthModal('switch');
                       }}
-                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 text-xs font-semibold hover:bg-stone-200 transition-colors"
+                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 text-xs font-semibold hover:bg-stone-200 transition-colors cursor-pointer"
                     >
                       <Users className="w-3.5 h-3.5" />
                       <span>Switch</span>
@@ -251,7 +266,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                         setIsMoreMenuOpen(false);
                         logout();
                       }}
-                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-100 transition-colors"
+                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-100 transition-colors cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       <span>Sign Out</span>
@@ -264,7 +279,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                     setIsMoreMenuOpen(false);
                     openAuthModal('login');
                   }}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs shadow-xs"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs shadow-xs cursor-pointer"
                 >
                   <KeyRound className="w-4 h-4" />
                   <span>Sign In / Register</span>

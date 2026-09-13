@@ -22,6 +22,8 @@ import { exportDataAsJSON, exportSessionsAsCSV } from '../../utils/storage';
 export const SettingsView: React.FC = () => {
   const {
     user,
+    theme,
+    setTheme,
     updateProfile,
     deleteAccount,
     goals,
@@ -37,8 +39,8 @@ export const SettingsView: React.FC = () => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [testSent, setTestSent] = useState(false);
 
-  const handleThemeChange = (theme: 'light' | 'dark' | 'system') => {
-    updateProfile({ theme });
+  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
+    setTheme(newTheme);
   };
 
   const handleExportJSON = () => {
@@ -117,7 +119,7 @@ export const SettingsView: React.FC = () => {
               { id: 'system', label: 'System', icon: Settings },
             ].map((t) => {
               const Icon = t.icon;
-              const isSelected = (user?.theme || 'light') === t.id;
+              const isSelected = (theme || user?.theme || 'light') === t.id;
               return (
                 <button
                   key={t.id}
@@ -333,7 +335,7 @@ export const SettingsView: React.FC = () => {
             <span>Data Export & Portability</span>
           </h2>
           <p className="text-xs text-stone-500 dark:text-stone-400">
-            Download your raw productivity database including all goals, tasks, recorded timestamped sessions, and certificates.
+            Download your raw productivity data including all goals, tasks, recorded timestamped sessions, and certificates.
           </p>
 
           <div className="flex flex-wrap gap-3 pt-2">
@@ -372,7 +374,7 @@ export const SettingsView: React.FC = () => {
                 onClick={() => setConfirmDelete(true)}
                 className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-colors shadow-xs"
               >
-                Reset Database & Delete Account
+                Reset All Data & Delete Account
               </button>
             ) : (
               <div className="flex items-center gap-3">

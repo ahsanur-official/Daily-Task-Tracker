@@ -30,9 +30,10 @@
     <script>
       (function() {
         try {
+          var savedTheme = localStorage.getItem('theme_preference');
           var userStr = localStorage.getItem('user_profile');
-          var theme = 'light';
-          if (userStr) {
+          var theme = savedTheme || 'light';
+          if (!savedTheme && userStr) {
             var user = JSON.parse(userStr);
             if (user && user.theme) {
               theme = user.theme;
@@ -41,8 +42,10 @@
           var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
           if (isDark) {
             document.documentElement.classList.add('dark');
+            document.body && document.body.classList.add('dark');
           } else {
             document.documentElement.classList.remove('dark');
+            document.body && document.body.classList.remove('dark');
           }
         } catch (_) {}
       })();

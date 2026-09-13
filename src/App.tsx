@@ -20,8 +20,51 @@ import { NotificationToasts } from './components/notifications/NotificationToast
 import { WifiOff, RefreshCw } from 'lucide-react';
 
 const MainContent: React.FC = () => {
-  const { activeView, isOnline, syncPendingCount } = useApp();
+  const {
+    activeView,
+    isOnline,
+    syncPendingCount,
+    user,
+    firebaseUser,
+    isAuthLoading,
+    isAuthenticated,
+    openAuthModal,
+  } = useApp();
   const [isCreateGoalOpen, setIsCreateGoalOpen] = useState(false);
+
+  // 1. Loading authentication session
+  if (isAuthLoading && !user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 p-4">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+          <div className="relative">
+            <img
+              src="/logo.svg"
+              alt="Daily Task Tracker"
+              className="w-16 h-16 rounded-2xl drop-shadow-md animate-pulse"
+            />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
+              Daily Task Tracker
+            </h1>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+              Loading workspace...
+            </p>
+          </div>
+          <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mt-2" />
+        </div>
+      </div>
+    );
+  }
+
+  const handleOpenCreateGoal = () => {
+    if (!firebaseUser) {
+      openAuthModal('login');
+    } else {
+      setIsCreateGoalOpen(true);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors selection:bg-amber-500/20 selection:text-amber-900 dark:selection:text-amber-200">
@@ -45,15 +88,15 @@ const MainContent: React.FC = () => {
       {/* Body with Sidebar & Content */}
       <div className="flex-1 flex w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-6 gap-8 xl:gap-10">
         {/* Left Desktop Sidebar Navigation */}
-        <Sidebar onOpenCreateGoal={() => setIsCreateGoalOpen(true)} />
+        <Sidebar onOpenCreateGoal={handleOpenCreateGoal} />
 
         {/* Dynamic View Route */}
         <main className="flex-1 min-w-0">
           {activeView === 'dashboard' && (
-            <DashboardView onOpenCreateGoal={() => setIsCreateGoalOpen(true)} />
+            <DashboardView onOpenCreateGoal={handleOpenCreateGoal} />
           )}
           {activeView === 'goals' && (
-            <GoalsView onOpenCreateGoal={() => setIsCreateGoalOpen(true)} />
+            <GoalsView onOpenCreateGoal={handleOpenCreateGoal} />
           )}
           {activeView === 'calendar' && <CalendarView />}
           {activeView === 'time' && <TimeTrackingView />}
@@ -84,7 +127,7 @@ const MainContent: React.FC = () => {
       />
 
       {/* Bottom Navigation for Mobile Devices */}
-      <MobileNav onOpenCreateGoal={() => setIsCreateGoalOpen(true)} />
+      <MobileNav onOpenCreateGoal={handleOpenCreateGoal} />
     </div>
   );
 };

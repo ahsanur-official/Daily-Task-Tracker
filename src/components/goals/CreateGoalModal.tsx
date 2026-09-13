@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, Plus, Trash2, Calendar, Target, Clock, Sparkles } from 'lucide-react';
+import { X, Plus, Trash2, Calendar, Target, Sparkles } from 'lucide-react';
 import { GoalCategory, GoalDurationOption } from '../../types';
 import { addDaysToDateString, formatSecondsToHuman } from '../../utils/time';
 
@@ -45,9 +45,9 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
 
   // Daily Tasks under this goal
   const [taskList, setTaskList] = useState<
-    Array<{ title: string; requiredDurationMinutes: number; description?: string; deadlineTime?: string }>
+    Array<{ title: string; requiredDurationMinutes: number; description?: string }>
   >([
-    { title: 'Core Practice Session', requiredDurationMinutes: 45, deadlineTime: '18:00' },
+    { title: 'Core Practice Session', requiredDurationMinutes: 45 },
   ]);
 
   if (!isOpen) return null;
@@ -73,7 +73,7 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
   const handleAddTaskRow = () => {
     setTaskList((prev) => [
       ...prev,
-      { title: '', requiredDurationMinutes: 30, deadlineTime: '' },
+      { title: '', requiredDurationMinutes: 30 },
     ]);
   };
 
@@ -84,7 +84,7 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
 
   const handleTaskChange = (
     index: number,
-    field: 'title' | 'requiredDurationMinutes' | 'deadlineTime',
+    field: 'title' | 'requiredDurationMinutes',
     value: any
   ) => {
     setTaskList((prev) =>
@@ -102,7 +102,6 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
         title: t.title.trim(),
         requiredDurationMinutes: Math.max(1, t.requiredDurationMinutes || 15),
         description: t.description,
-        deadlineTime: t.deadlineTime ? t.deadlineTime.trim() : undefined,
       }));
 
     if (validTasks.length === 0) {
@@ -320,27 +319,16 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
                       onChange={(e) =>
                         handleTaskChange(index, 'requiredDurationMinutes', Number(e.target.value))
                       }
-                      className="w-14 text-xs px-2 py-2 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-center font-mono"
+                      className="w-16 text-xs px-2 py-2 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-center font-mono text-stone-800 dark:text-stone-200"
                     />
-                    <span className="text-xs text-stone-500">m</span>
+                    <span className="text-xs text-stone-500 font-medium">min</span>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0" title="Optional daily notification deadline">
-                    <Clock className="w-3 h-3 text-stone-400" />
-                    <input
-                      type="time"
-                      value={task.deadlineTime || ''}
-                      onChange={(e) =>
-                        handleTaskChange(index, 'deadlineTime', e.target.value)
-                      }
-                      className="text-xs px-2 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 font-mono text-stone-800 dark:text-stone-200"
-                    />
-                  </div>
                   {taskList.length > 1 && (
                     <button
                       type="button"
                       onClick={() => handleRemoveTaskRow(index)}
-                      className="p-1.5 text-stone-400 hover:text-red-500 transition-colors"
+                      className="p-1.5 text-stone-400 hover:text-red-500 transition-colors cursor-pointer"
                       title="Remove task"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
