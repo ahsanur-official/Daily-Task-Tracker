@@ -31,7 +31,9 @@ import firebaseConfig from '../firebase-applet-config.json';
 const app = initializeApp(firebaseConfig);
 
 // CRITICAL: Initialize Firestore using getFirestore with firestoreDatabaseId as required by Firebase skill.
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = (firebaseConfig as any).firestoreDatabaseId
+  ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId)
+  : getFirestore(app);
 
 // Silence internal transport probe warnings so transient offline-first connection handshakes do not log as fatal errors
 setLogLevel('silent');

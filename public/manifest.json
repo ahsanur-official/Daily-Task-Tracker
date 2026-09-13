@@ -1,23 +1,38 @@
 {
+  "id": "/",
   "name": "Daily Task Tracker",
-  "short_name": "Task Tracker",
-  "description": "Minimal, high-precision daily task, goal, time tracking, and streak recovery platform.",
+  "short_name": "TaskTracker",
+  "description": "A modern, minimal, premium daily task and goal tracking productivity web application with accurate timers, streaks, recovery balance, and certificates.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0c0a09",
   "theme_color": "#0c0a09",
   "icons": [
     {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "/logo.svg",
       "sizes": "192x192 512x512",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
+

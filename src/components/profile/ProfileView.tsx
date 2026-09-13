@@ -37,6 +37,7 @@ import { formatSecondsToHuman } from '../../utils/time';
 import { processStorageImageFile, PRESET_AVATARS } from '../../utils/imageUpload';
 import { exportDataAsJSON } from '../../utils/storage';
 import { GoalCategory } from '../../types';
+import { GoogleSheetsSyncCard } from '../common/GoogleSheetsSyncCard';
 
 export const ProfileView: React.FC = () => {
   const {
@@ -731,6 +732,9 @@ export const ProfileView: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Google Sheets Backup & Sync */}
+            <GoogleSheetsSyncCard />
           </div>
         </div>
       )}

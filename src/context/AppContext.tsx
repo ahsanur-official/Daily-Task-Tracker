@@ -34,6 +34,10 @@ import {
   NotificationPermissionStatus,
 } from '../utils/notifications';
 import {
+  googleSheetsService,
+  GoogleSheetsSyncStatus,
+} from '../services/googleSheets';
+import {
   auth,
   db,
   googleProvider,
@@ -173,6 +177,11 @@ interface AppContextType {
   isSyncing: boolean;
   syncNow: () => void;
 
+  // Google Sheets Cloud Backup
+  sheetsStatus: GoogleSheetsSyncStatus;
+  connectAndSyncGoogleSheets: () => Promise<void>;
+  disconnectGoogleSheets: () => void;
+
   // Theme & Appearance
   theme: 'light' | 'dark' | 'system';
   isDark: boolean;
@@ -244,11 +253,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return loadFromLocalStorage<boolean>(STORAGE_KEYS.SIDEBAR_COLLAPSED, false);
   });
 
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [sessions, setSessions] = useState<TimeSession[]>([]);
-  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    return loadFromLocalStorage<UserProfile | null>(STORAGE_KEYS.USER_PROFILE, null);
+  });
+  const [goals, setGoals] = useState<Goal[]>(() => {
+    return loadFromLocalStorage<Goal[]>(STORAGE_KEYS.GOALS, []);
+  });
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    return loadFromLocalStorage<Task[]>(STORAGE_KEYS.TASKS, []);
+  });
+  const [sessions, setSessions] = useState<TimeSession[]>(() => {
+    return loadFromLocalStorage<TimeSession[]>(STORAGE_KEYS.SESSIONS, []);
+  });
+  const [certificates, setCertificates] = useState<Certificate[]>(() => {
+    return loadFromLocalStorage<Certificate[]>(STORAGE_KEYS.CERTIFICATES, []);
+  });
 
   const [activeTimer, setActiveTimer] = useState<ActiveTimerState | null>(() => {
     return loadFromLocalStorage<ActiveTimerState | null>(STORAGE_KEYS.ACTIVE_TIMER, null);
@@ -257,6 +276,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [syncQueue, setSyncQueue] = useState<SyncQueueItem[]>(() => {
     return loadFromLocalStorage<SyncQueueItem[]>(STORAGE_KEYS.SYNC_QUEUE, []);
   });
+
+  // Local storage persistence effects for offline continuity
+  useEffect(() => {
+    if (user) {
+      saveToLocalStorage(STORAGE_KEYS.USER_PROFILE, user);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user || auth.currentUser) {
+      saveToLocalStorage(STORAGE_KEYS.GOALS, goals);
+    }
+  }, [goals, user]);
+
+  useEffect(() => {
+    if (user || auth.currentUser) {
+      saveToLocalStorage(STORAGE_KEYS.TASKS, tasks);
+    }
+  }, [tasks, user]);
+
+  useEffect(() => {
+    if (user || auth.currentUser) {
+      saveToLocalStorage(STORAGE_KEYS.SESSIONS, sessions);
+    }
+  }, [sessions, user]);
+
+  useEffect(() => {
+    if (user || auth.currentUser) {
+      saveToLocalStorage(STORAGE_KEYS.CERTIFICATES, certificates);
+    }
+  }, [certificates, user]);
 
   // Auth & Multi-Account States
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
@@ -282,10 +332,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const handleOnline = () => {
       setIsOnline(true);
       checkConn();
+      window.dispatchEvent(
+        new CustomEvent('app-notification-event', {
+          detail: {
+            title: 'Back Online',
+            body: 'Internet connection detected. Auto-syncing pending offline data...',
+            type: 'system',
+          },
+        })
+      );
     };
     const handleOffline = () => {
       setIsOnline(false);
       setIsFirestoreConnected(false);
+      window.dispatchEvent(
+        new CustomEvent('app-notification-event', {
+          detail: {
+            title: 'Offline Mode Active',
+            body: 'You are offline. All tasks, goals, and timers are being saved safely to your device.',
+            type: 'system',
+          },
+        })
+      );
     };
 
     window.addEventListener('online', handleOnline);
@@ -323,6 +391,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTasks([]);
         setSessions([]);
         setCertificates([]);
+        localStorage.removeItem(STORAGE_KEYS.USER_PROFILE);
+        localStorage.removeItem(STORAGE_KEYS.GOALS);
+        localStorage.removeItem(STORAGE_KEYS.TASKS);
+        localStorage.removeItem(STORAGE_KEYS.SESSIONS);
+        localStorage.removeItem(STORAGE_KEYS.CERTIFICATES);
+        localStorage.removeItem(STORAGE_KEYS.SYNC_QUEUE);
+        localStorage.removeItem(STORAGE_KEYS.ACTIVE_TIMER);
         setIsAuthLoading(false);
         return;
       }
@@ -550,6 +625,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       setSyncQueue(failedQueue);
       saveToLocalStorage(STORAGE_KEYS.SYNC_QUEUE, failedQueue);
+
+      const totalSynced = (currentQueue.length - failedQueue.length) + pendingSessions.length;
+      if (totalSynced > 0) {
+        window.dispatchEvent(
+          new CustomEvent('app-notification-event', {
+            detail: {
+              title: 'Cloud Synchronization Complete',
+              body: `Successfully updated ${totalSynced} offline item${totalSynced > 1 ? 's' : ''} to your cloud database.`,
+              type: 'system',
+            },
+          })
+        );
+      }
     } catch (err) {
       console.warn('Auto-sync execution encountered an error:', err);
     } finally {
@@ -818,7 +906,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const startTimer = useCallback(
     (taskId: string, isDistractionFree = false) => {
-      if (!auth.currentUser) {
+      const currentUid = auth.currentUser?.uid || user?.id;
+      if (!currentUid) {
         openAuthModal('login');
         return;
       }
@@ -927,11 +1016,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deadlineTime?: string;
       }>
     ): Promise<Goal> => {
-      if (!auth.currentUser) {
+      const currentUid = auth.currentUser?.uid || user?.id;
+      if (!currentUid) {
         openAuthModal('login');
         throw new Error('Please sign in or create an account to create goals.');
       }
-      const currentUid = auth.currentUser.uid;
       const goalId = generateRandomId('goal');
       const newGoal: Goal = {
         ...goalData,
@@ -978,12 +1067,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       return newGoal;
     },
-    [user?.id, todayDate, enqueueSyncItem, removeSyncItems]
+    [user?.id, todayDate, enqueueSyncItem, removeSyncItems, openAuthModal]
   );
 
   const updateGoal = useCallback(
     (id: string, updates: Partial<Goal>) => {
-      if (!auth.currentUser) {
+      const currentUid = auth.currentUser?.uid || user?.id;
+      if (!currentUid) {
         openAuthModal('login');
         return;
       }
@@ -998,11 +1088,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
       }
     },
-    [enqueueSyncItem, removeSyncItems, openAuthModal]
+    [user?.id, enqueueSyncItem, removeSyncItems, openAuthModal]
   );
 
   const pauseGoal = useCallback((id: string) => {
-    if (!auth.currentUser) {
+    const currentUid = auth.currentUser?.uid || user?.id;
+    if (!currentUid) {
       openAuthModal('login');
       return;
     }
@@ -1010,19 +1101,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       stopAndSaveTimer();
     }
     updateGoal(id, { status: 'paused' });
-  }, [activeTimer, stopAndSaveTimer, updateGoal, openAuthModal]);
+  }, [user?.id, activeTimer, stopAndSaveTimer, updateGoal, openAuthModal]);
 
   const resumeGoal = useCallback((id: string) => {
-    if (!auth.currentUser) {
+    const currentUid = auth.currentUser?.uid || user?.id;
+    if (!currentUid) {
       openAuthModal('login');
       return;
     }
     updateGoal(id, { status: 'active' });
-  }, [updateGoal, openAuthModal]);
+  }, [user?.id, updateGoal, openAuthModal]);
 
   const completeGoal = useCallback(
     (id: string): Certificate | null => {
-      if (!auth.currentUser) {
+      const currentUid = auth.currentUser?.uid || user?.id;
+      if (!currentUid) {
         openAuthModal('login');
         return null;
       }
@@ -1036,7 +1129,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const cert: Certificate = {
         id: certId,
         verificationCode: generateVerificationHash(certId, user?.fullName || 'Productivity User'),
-        userId: auth.currentUser?.uid || user?.id || 'anonymous',
+        userId: currentUid,
         userName: user?.fullName || 'Productivity User',
         userAvatar: user?.avatarUrl,
         goalId: goal.id,
@@ -1069,12 +1162,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCelebratingGoal(goal);
       return cert;
     },
-    [goals, sessions, user, todayDate, updateGoal, enqueueSyncItem, removeSyncItems]
+    [goals, sessions, user, todayDate, updateGoal, enqueueSyncItem, removeSyncItems, openAuthModal]
   );
 
   const deleteGoal = useCallback(
     (id: string) => {
-      if (!auth.currentUser) {
+      const currentUid = auth.currentUser?.uid || user?.id;
+      if (!currentUid) {
         openAuthModal('login');
         return;
       }
@@ -1102,16 +1196,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       }
     },
-    [activeTimer, cancelTimer, tasks, sessions, enqueueSyncItem, removeSyncItems, openAuthModal]
+    [user?.id, activeTimer, cancelTimer, tasks, sessions, enqueueSyncItem, removeSyncItems, openAuthModal]
   );
 
   const createTask = useCallback(
     (data: Omit<Task, 'id' | 'createdAt' | 'userId'>): Task => {
-      if (!auth.currentUser) {
+      const currentUid = auth.currentUser?.uid || user?.id;
+      if (!currentUid) {
         openAuthModal('login');
         throw new Error('Please sign in or create an account to add tasks.');
       }
-      const currentUid = auth.currentUser.uid;
       const newTask: Task = {
         ...data,
         id: generateRandomId('task'),
@@ -1131,12 +1225,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       return newTask;
     },
-    [todayDate, enqueueSyncItem, removeSyncItems, openAuthModal]
+    [user?.id, todayDate, enqueueSyncItem, removeSyncItems, openAuthModal]
   );
 
   const updateTask = useCallback(
     (id: string, updates: Partial<Task>) => {
-      if (!auth.currentUser) {
+      const currentUid = auth.currentUser?.uid || user?.id;
+      if (!currentUid) {
         openAuthModal('login');
         return;
       }
@@ -1151,12 +1246,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
       }
     },
-    [enqueueSyncItem, removeSyncItems, openAuthModal]
+    [user?.id, enqueueSyncItem, removeSyncItems, openAuthModal]
   );
 
   const deleteTask = useCallback(
     (id: string) => {
-      if (!auth.currentUser) {
+      const currentUid = auth.currentUser?.uid || user?.id;
+      if (!currentUid) {
         openAuthModal('login');
         return;
       }
@@ -1177,7 +1273,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       }
     },
-    [activeTimer, cancelTimer, sessions, enqueueSyncItem, removeSyncItems, openAuthModal]
+    [user?.id, activeTimer, cancelTimer, sessions, enqueueSyncItem, removeSyncItems, openAuthModal]
   );
 
   // Certificates
@@ -1558,6 +1654,89 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const isAuthenticated = Boolean(firebaseUser && user);
 
+  // Google Sheets integration state
+  const [sheetsStatus, setSheetsStatus] = useState<GoogleSheetsSyncStatus>(() => {
+    const id = googleSheetsService.getStoredSpreadsheetId();
+    const lastSync = googleSheetsService.getStoredLastSync();
+    const hasToken = googleSheetsService.hasToken();
+    return {
+      connected: Boolean(id || hasToken),
+      spreadsheetId: id,
+      spreadsheetUrl: id ? `https://docs.google.com/spreadsheets/d/${id}/edit` : null,
+      lastSynced: lastSync,
+      isSyncing: false,
+      error: null,
+    };
+  });
+
+  const connectAndSyncGoogleSheets = useCallback(async () => {
+    const currentUid = auth.currentUser?.uid || user?.id;
+    if (!currentUid) {
+      openAuthModal('login');
+      throw new Error('Please sign in or create an account before syncing to Google Sheets.');
+    }
+
+    setSheetsStatus((prev) => ({ ...prev, isSyncing: true, error: null }));
+    try {
+      let token = googleSheetsService.hasToken()
+        ? loadFromLocalStorage<string | null>('dt_google_sheets_token', null)
+        : null;
+
+      if (!token) {
+        token = await googleSheetsService.requestOAuthToken();
+      }
+
+      const res = await googleSheetsService.syncToGoogleSheets(token, {
+        user,
+        goals,
+        tasks,
+        sessions,
+        certificates,
+        streakDays: streakInfo.currentStreak,
+        bestStreakDays: streakInfo.bestStreak,
+      });
+
+      setSheetsStatus({
+        connected: true,
+        spreadsheetId: res.spreadsheetId,
+        spreadsheetUrl: res.spreadsheetUrl,
+        lastSynced: new Date().toISOString(),
+        isSyncing: false,
+        error: null,
+      });
+
+      window.dispatchEvent(
+        new CustomEvent('app-notification-event', {
+          detail: {
+            title: 'Google Sheets Backup Complete',
+            body: 'Your user profile, goals, tasks, and time sessions have been saved in Google Sheets.',
+            type: 'achievement',
+          },
+        })
+      );
+    } catch (err: any) {
+      console.error('Google Sheets sync error:', err);
+      setSheetsStatus((prev) => ({
+        ...prev,
+        isSyncing: false,
+        error: err.message || 'Failed to sync with Google Sheets',
+      }));
+      throw err;
+    }
+  }, [user, goals, tasks, sessions, certificates, streakInfo, openAuthModal]);
+
+  const disconnectGoogleSheets = useCallback(() => {
+    googleSheetsService.clearAuth();
+    setSheetsStatus({
+      connected: false,
+      spreadsheetId: null,
+      spreadsheetUrl: null,
+      lastSynced: null,
+      isSyncing: false,
+      error: null,
+    });
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -1621,6 +1800,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         syncQueue,
         isSyncing,
         syncNow,
+        sheetsStatus,
+        connectAndSyncGoogleSheets,
+        disconnectGoogleSheets,
         theme,
         isDark,
         setTheme,

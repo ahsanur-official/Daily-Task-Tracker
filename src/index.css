@@ -2,7 +2,20 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Ensure all buttons, menu items, and clickable triggers display pointer cursor */
+/* 120Hz / 120fps High Refresh Rate Hardware Acceleration & Fluid Layout */
+*, *::before, *::after {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: none;
+  text-rendering: optimizeLegibility;
+}
+
+/* Ensure all buttons, menu items, and clickable triggers display pointer cursor and instant touch response */
 button,
 [role="button"],
 a,
@@ -14,6 +27,8 @@ input[type="reset"],
 input[type="checkbox"],
 input[type="radio"] {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 button:disabled,
@@ -31,6 +46,19 @@ html.dark {
   color-scheme: dark;
 }
 
+/* GPU Accelerated Animation Layer Classes for 120fps Silky Experience */
+.gpu-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+.smooth-transition {
+  transition-property: transform, opacity, background-color, border-color, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
 
 .font-serif-display {
   font-family: 'Playfair Display', Georgia, serif;
@@ -40,7 +68,7 @@ html.dark {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Custom scrollbars */
+/* Custom scrollbars with GPU compositor hint */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -51,6 +79,7 @@ html.dark {
 ::-webkit-scrollbar-thumb {
   background: rgba(168, 162, 158, 0.3);
   border-radius: 9999px;
+  transition: background-color 150ms ease;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(168, 162, 158, 0.5);

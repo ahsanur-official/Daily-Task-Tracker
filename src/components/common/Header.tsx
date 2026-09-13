@@ -20,6 +20,7 @@ import {
   Cloud,
 } from 'lucide-react';
 import { formatSecondsToDigital } from '../../utils/time';
+import { PWAInstallButton } from './PWAInstallButton';
 
 export const Header: React.FC = () => {
   const {
@@ -180,6 +181,9 @@ export const Header: React.FC = () => {
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>Verify</span>
           </button>
+
+          {/* Install App Button */}
+          <PWAInstallButton variant="header" />
 
           {/* Theme Toggle */}
           <button

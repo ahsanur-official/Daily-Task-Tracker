@@ -16,8 +16,15 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
+  Smartphone,
+  RefreshCw,
+  Cloud,
+  CloudOff,
+  HardDrive,
 } from 'lucide-react';
 import { exportDataAsJSON, exportSessionsAsCSV } from '../../utils/storage';
+import { PWAInstallButton } from '../common/PWAInstallButton';
+import { GoogleSheetsSyncCard } from '../common/GoogleSheetsSyncCard';
 
 export const SettingsView: React.FC = () => {
   const {
@@ -34,6 +41,10 @@ export const SettingsView: React.FC = () => {
     notificationPermission,
     requestNotificationAccess,
     sendTestNotificationAlert,
+    isOnline,
+    isSyncing,
+    syncNow,
+    syncQueue,
   } = useApp();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -327,6 +338,106 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* App Installation & Offline Local Storage */}
+        <div className="p-6 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-amber-500" />
+                <span>App Installation & Offline Continuity</span>
+              </h2>
+              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                Install as a native application on your phone, tablet, or desktop with 100% offline support.
+              </p>
+            </div>
+            <div>
+              <PWAInstallButton variant="settings" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            {/* Network & Cloud Status Card */}
+            <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200/60 dark:border-stone-700/60 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {isOnline ? (
+                    <Cloud className="w-4 h-4 text-emerald-500" />
+                  ) : (
+                    <CloudOff className="w-4 h-4 text-amber-500" />
+                  )}
+                  <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                    Network Connection
+                  </span>
+                </div>
+                <span
+                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                    isOnline
+                      ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
+                      : 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800'
+                  }`}
+                >
+                  {isOnline ? 'Online' : 'Offline Mode'}
+                </span>
+              </div>
+              <p className="text-[11px] text-stone-600 dark:text-stone-300 leading-relaxed">
+                {isOnline
+                  ? 'All changes are automatically synced in real time to your cloud account.'
+                  : 'You are currently working offline. All tasks, goals, and timer logs are being saved directly in your device’s local storage.'}
+              </p>
+
+              <div className="pt-1 flex items-center justify-between">
+                <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                  Pending cloud sync: <strong className="text-stone-900 dark:text-stone-100">{syncQueue.length}</strong> items
+                </span>
+                <button
+                  type="button"
+                  onClick={() => syncNow()}
+                  disabled={!isOnline || isSyncing || syncQueue.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-stone-200 dark:bg-stone-700 hover:bg-stone-300 dark:hover:bg-stone-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-stone-800 dark:text-stone-200"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-amber-500' : ''}`} />
+                  <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Local Storage Cache Stats */}
+            <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200/60 dark:border-stone-700/60 space-y-3">
+              <div className="flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                  Local Storage Persistence
+                </span>
+              </div>
+              <p className="text-[11px] text-stone-600 dark:text-stone-300 leading-relaxed">
+                Data saved in local storage allows you to open and use the app anytime, even without an internet connection.
+              </p>
+
+              <div className="grid grid-cols-4 gap-2 pt-1">
+                <div className="p-2 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/50 dark:border-stone-700/50 text-center">
+                  <div className="text-xs font-bold text-stone-900 dark:text-stone-100">{goals.length}</div>
+                  <div className="text-[10px] text-stone-500 dark:text-stone-400">Goals</div>
+                </div>
+                <div className="p-2 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/50 dark:border-stone-700/50 text-center">
+                  <div className="text-xs font-bold text-stone-900 dark:text-stone-100">{tasks.length}</div>
+                  <div className="text-[10px] text-stone-500 dark:text-stone-400">Tasks</div>
+                </div>
+                <div className="p-2 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/50 dark:border-stone-700/50 text-center">
+                  <div className="text-xs font-bold text-stone-900 dark:text-stone-100">{sessions.length}</div>
+                  <div className="text-[10px] text-stone-500 dark:text-stone-400">Sessions</div>
+                </div>
+                <div className="p-2 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/50 dark:border-stone-700/50 text-center">
+                  <div className="text-xs font-bold text-stone-900 dark:text-stone-100">{certificates.length}</div>
+                  <div className="text-[10px] text-stone-500 dark:text-stone-400">Certs</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Google Sheets User & Data Backup Card */}
+        <GoogleSheetsSyncCard />
 
         {/* Data Portability (Prompt Section 40) */}
         <div className="p-6 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">

@@ -15,7 +15,9 @@ import {
   KeyRound,
   PanelLeftClose,
   PanelLeftOpen,
+  Download,
 } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface SidebarProps {
   onOpenCreateGoal: () => void;
@@ -190,6 +192,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCreateGoal }) => {
                 style={{ width: `${Math.min(100, Math.max(15, (streakInfo.currentStreak / 30) * 100))}%` }}
               />
             </div>
+          </div>
+        )}
+
+        {/* PWA Install Button in Sidebar */}
+        {!isSidebarCollapsed && (
+          <div className="pt-1">
+            <PWAInstallButton variant="sidebar" />
           </div>
         )}
 
