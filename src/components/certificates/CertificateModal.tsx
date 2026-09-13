@@ -20,6 +20,17 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ certificate,
   const [showQrPanel, setShowQrPanel] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Allow closing via Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   useEffect(() => {
     if (!certificate || !canvasRef.current) return;
     const certWithTemplate: Certificate = {
@@ -59,16 +70,36 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ certificate,
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-4xl shadow-2xl overflow-hidden my-6 animate-in zoom-in-95 duration-200">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto cursor-pointer"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Certificate Modal"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-4xl shadow-2xl overflow-hidden my-6 animate-in zoom-in-95 duration-200 cursor-default"
+      >
+        {/* Mandatory, Always-Visible 'X' Close Button in the Top-Right Corner */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 sm:top-5 sm:right-5 z-30 w-10 h-10 rounded-xl flex items-center justify-center text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white bg-white/95 hover:bg-stone-100 dark:bg-stone-800/95 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-all shadow-sm cursor-pointer"
+          aria-label="Close certificate modal"
+          title="Close modal (Esc)"
+        >
+          <X className="w-5 h-5 stroke-[2.5]" />
+        </button>
+
         {/* Top Controls Bar */}
-        <div className="p-4 sm:p-6 border-b border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+        <div className="p-4 sm:p-6 pr-16 sm:pr-20 border-b border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
               <Sparkles className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100 truncate">
                 Official Certificate of Achievement
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400 font-mono">
@@ -92,7 +123,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ certificate,
             </button>
 
             {/* Template Selector */}
-            <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-xs font-semibold">
+            <div className="hidden sm:flex items-center gap-1 bg-stone-100 dark:bg-stone-800 p-1 rounded-xl text-xs font-semibold">
               {(['classic', 'modern', 'onyx', 'emerald'] as const).map((tmpl) => (
                 <button
                   key={tmpl}
@@ -107,13 +138,6 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ certificate,
                 </button>
               ))}
             </div>
-
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors ml-2 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
@@ -210,6 +234,15 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ certificate,
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-bold transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Close Window</span>
+            </button>
+
             <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-bold transition-colors cursor-pointer"

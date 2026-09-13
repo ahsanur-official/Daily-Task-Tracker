@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   Plus,
   X,
-  Users,
   LogOut,
   KeyRound,
   Sun,
@@ -148,7 +147,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                 <img
                   src="/logo.svg"
                   alt="Daily Task Tracker"
-                  className="w-7 h-7 rounded-lg object-contain"
+                  className="w-7 h-7 object-contain"
                 />
                 <div>
                   <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
@@ -253,12 +252,12 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                     <button
                       onClick={() => {
                         setIsMoreMenuOpen(false);
-                        openAuthModal('switch');
+                        setActiveView('profile');
                       }}
-                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 text-xs font-semibold hover:bg-stone-200 transition-colors cursor-pointer"
+                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 text-xs font-semibold hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors cursor-pointer"
                     >
-                      <Users className="w-3.5 h-3.5" />
-                      <span>Switch</span>
+                      <User className="w-3.5 h-3.5" />
+                      <span>Profile</span>
                     </button>
 
                     <button
@@ -266,7 +265,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                         setIsMoreMenuOpen(false);
                         logout();
                       }}
-                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-100 transition-colors cursor-pointer"
+                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       <span>Sign Out</span>

@@ -92,11 +92,13 @@ export const ProfileView: React.FC = () => {
   const [imageError, setImageError] = useState<string | null>(null);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const overviewFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Keep state synced when user changes
+  // Keep state synced when user changes, but only when not actively editing
   useEffect(() => {
-    if (user) {
+    if (user && activeTab !== 'edit') {
       setFullName(user.fullName || '');
       setUsername(user.username || '');
       setEmail(user.email || '');
@@ -118,30 +120,48 @@ export const ProfileView: React.FC = () => {
       setAvatarUrl(user.avatarUrl || '');
       setAvatarStorageType(user.avatarStorageType || 'preset');
     }
-  }, [user]);
+  }, [user?.id, activeTab]);
 
   // Handle Image Upload from Local Device Storage System
-  const handleDeviceImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processAndSaveDeviceImage = async (file: File) => {
     setImageError(null);
     setIsProcessingImage(true);
 
     try {
-      const result = await processStorageImageFile(file, 400, 0.88);
+      const result = await processStorageImageFile(file, 240, 0.82);
       setAvatarUrl(result.dataUrl);
       setAvatarStorageType('uploaded_device');
       setUploadedFileName(result.fileName);
       setUploadedFileSizeKb(result.sizeKb);
+
+      // Persist directly to profile and storage system
+      await updateProfile({
+        avatarUrl: result.dataUrl,
+        avatarStorageType: 'uploaded_device',
+      });
+
+      window.dispatchEvent(
+        new CustomEvent('app-notification-event', {
+          detail: {
+            title: 'Profile Photo Updated',
+            body: `Loaded ${result.fileName || 'photo'} (${result.sizeKb} KB) from your local device.`,
+            type: 'system',
+          },
+        })
+      );
     } catch (err) {
       setImageError(err instanceof Error ? err.message : 'Failed to process selected image from device storage');
     } finally {
       setIsProcessingImage(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (overviewFileInputRef.current) overviewFileInputRef.current.value = '';
     }
+  };
+
+  const handleDeviceImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processAndSaveDeviceImage(file);
   };
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
@@ -149,21 +169,7 @@ export const ProfileView: React.FC = () => {
     e.stopPropagation();
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-
-    setImageError(null);
-    setIsProcessingImage(true);
-
-    try {
-      const result = await processStorageImageFile(file, 400, 0.88);
-      setAvatarUrl(result.dataUrl);
-      setAvatarStorageType('uploaded_device');
-      setUploadedFileName(result.fileName);
-      setUploadedFileSizeKb(result.sizeKb);
-    } catch (err) {
-      setImageError(err instanceof Error ? err.message : 'Failed to process image');
-    } finally {
-      setIsProcessingImage(false);
-    }
+    await processAndSaveDeviceImage(file);
   };
 
   const toggleWorkingDay = (day: string) => {
@@ -176,32 +182,52 @@ export const ProfileView: React.FC = () => {
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({
-      fullName,
-      username,
-      email,
-      phone: phone || undefined,
-      occupation: occupation || undefined,
-      companyOrSchool: companyOrSchool || undefined,
-      location: location || undefined,
-      website: website || undefined,
-      github: github || undefined,
-      linkedin: linkedin || undefined,
-      twitter: twitter || undefined,
-      bio,
-      avatarUrl,
-      avatarStorageType,
-      timeZone,
-      preferredDailyWorkingHours: Number(preferredHours),
-      preferredWorkStartTime: preferredStartTime,
-      preferredWorkEndTime: preferredEndTime,
-      workingDays,
-      primaryCategory,
-    });
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    setIsSaving(true);
+    try {
+      await updateProfile({
+        fullName: fullName.trim() || user?.fullName || 'Member',
+        username: username.trim().toLowerCase() || user?.username || 'user',
+        email: email.trim() || user?.email || '',
+        phone: phone.trim(),
+        occupation: occupation.trim(),
+        companyOrSchool: companyOrSchool.trim(),
+        location: location.trim(),
+        website: website.trim(),
+        github: github.trim(),
+        linkedin: linkedin.trim(),
+        twitter: twitter.trim(),
+        bio: bio.trim(),
+        avatarUrl,
+        avatarStorageType,
+        timeZone,
+        preferredDailyWorkingHours: Number(preferredHours),
+        preferredWorkStartTime: preferredStartTime,
+        preferredWorkEndTime: preferredEndTime,
+        workingDays,
+        primaryCategory,
+      });
+
+      setSavedSuccess(true);
+      window.dispatchEvent(
+        new CustomEvent('app-notification-event', {
+          detail: {
+            title: 'Profile Updated',
+            body: 'All profile adjustments and preferences were saved successfully.',
+            type: 'system',
+          },
+        })
+      );
+      setTimeout(() => {
+        setSavedSuccess(false);
+        setActiveTab('overview');
+      }, 700);
+    } catch (saveErr) {
+      console.error('Save profile error:', saveErr);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleExportData = () => {
@@ -260,14 +286,6 @@ export const ProfileView: React.FC = () => {
           <div className="absolute inset-0 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] [background-size:16px_16px] opacity-25" />
           <div className="absolute top-4 right-4 flex items-center gap-2">
             <button
-              onClick={() => openAuthModal('switch')}
-              className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-stone-900/80 hover:bg-white dark:hover:bg-stone-800 text-stone-700 dark:text-stone-200 text-xs font-semibold backdrop-blur-md transition-colors flex items-center gap-1.5 shadow-xs"
-              title="Switch to another saved account"
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Switch Account</span>
-            </button>
-            <button
               onClick={handleExportData}
               className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-stone-900/80 hover:bg-white dark:hover:bg-stone-800 text-stone-700 dark:text-stone-200 text-xs font-semibold backdrop-blur-md transition-colors flex items-center gap-1.5 shadow-xs"
               title="Export complete tracking dossier (JSON)"
@@ -289,13 +307,36 @@ export const ProfileView: React.FC = () => {
         {/* Banner Identity Content */}
         <div className="px-6 sm:px-8 pb-6 pt-0 relative flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-16 sm:-mt-14">
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
-            {/* Avatar with storage indicator */}
-            <div className="relative">
+            {/* Avatar with storage indicator and instant device upload trigger */}
+            <div className="relative group shrink-0">
+              <input
+                ref={overviewFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handleDeviceImageUpload}
+                className="hidden"
+                aria-label="Upload profile image from device"
+              />
               <img
                 src={user.avatarUrl}
                 alt={user.fullName}
-                className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl object-cover ring-4 ring-white dark:ring-stone-900 shadow-xl bg-stone-100 dark:bg-stone-800"
+                className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl object-cover ring-4 ring-white dark:ring-stone-900 shadow-xl bg-stone-100 dark:bg-stone-800 transition-transform duration-200"
               />
+
+              {/* Overlay camera button for desktop hover / quick click */}
+              <button
+                type="button"
+                onClick={() => overviewFileInputRef.current?.click()}
+                disabled={isProcessingImage}
+                className="absolute inset-0 rounded-3xl bg-stone-950/60 backdrop-blur-xs flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 cursor-pointer shadow-inner"
+                title="Click to select a photo from your local device"
+              >
+                <Camera className="w-6 h-6 text-amber-400 mb-1" />
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-900/90 text-stone-100 border border-stone-700">
+                  {isProcessingImage ? 'Saving...' : 'Upload Photo'}
+                </span>
+              </button>
+
               <span
                 className={`absolute bottom-1 right-1 px-2 py-0.5 rounded-lg text-[10px] font-bold shadow-md flex items-center gap-1 ${
                   user.avatarStorageType === 'uploaded_device'
@@ -355,6 +396,20 @@ export const ProfileView: React.FC = () => {
                   <span>{user.companyOrSchool}</span>
                 </div>
               )}
+
+              {/* Quick direct device upload button visible on mobile and desktop */}
+              <div className="pt-1.5 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <button
+                  type="button"
+                  onClick={() => overviewFileInputRef.current?.click()}
+                  disabled={isProcessingImage}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-amber-500/15 hover:text-amber-700 dark:hover:text-amber-400 text-stone-600 dark:text-stone-400 text-xs font-semibold transition-colors cursor-pointer border border-stone-200/60 dark:border-stone-700/60"
+                  title="Upload avatar photo directly from this device"
+                >
+                  <Camera className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{isProcessingImage ? 'Saving Photo...' : 'Change Device Photo'}</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1185,10 +1240,11 @@ export const ProfileView: React.FC = () => {
 
                 <button
                   type="submit"
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-7 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-stone-950 font-bold text-xs shadow-md transition-all cursor-pointer"
+                  disabled={isSaving}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-7 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-stone-950 font-bold text-xs shadow-md transition-all cursor-pointer"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Save All Changes</span>
+                  <CheckCircle2 className={`w-4 h-4 ${isSaving ? 'animate-spin' : ''}`} />
+                  <span>{isSaving ? 'Saving Changes...' : 'Save All Changes'}</span>
                 </button>
               </div>
             </div>

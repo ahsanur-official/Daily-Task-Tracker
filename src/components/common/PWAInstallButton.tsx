@@ -5,11 +5,13 @@ import { Download, Smartphone, CheckCircle, X, Share, PlusSquare, ArrowUpRight }
 interface PWAInstallButtonProps {
   variant?: 'header' | 'sidebar' | 'banner' | 'settings';
   className?: string;
+  collapsed?: boolean;
 }
 
 export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   variant = 'header',
   className = '',
+  collapsed = false,
 }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showGuideModal, setShowGuideModal] = useState(false);
@@ -59,10 +61,30 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
         <button
           type="button"
           onClick={handleClick}
-          className={`w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer ${className}`}
+          title={collapsed ? 'Install App (Optional)' : 'Install as application (Optional)'}
+          className={`w-full h-10 rounded-xl border border-stone-200/80 dark:border-stone-800 hover:border-amber-500/50 bg-stone-50/60 dark:bg-stone-850/60 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white font-medium text-xs flex items-center transition-colors cursor-pointer group overflow-hidden ${
+            collapsed ? 'justify-center px-0' : 'justify-between px-3'
+          } ${className}`}
         >
-          <Download className="w-3.5 h-3.5" />
-          <span>Install App to Device</span>
+          <div className="flex items-center min-w-0">
+            <Download className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform shrink-0" />
+            <span
+              className={`whitespace-nowrap overflow-hidden transition-all duration-200 ease-out ${
+                collapsed
+                  ? 'opacity-0 max-w-0 -translate-x-2 pointer-events-none ml-0'
+                  : 'opacity-100 max-w-28 translate-x-0 ml-2.5'
+              }`}
+            >
+              Install App
+            </span>
+          </div>
+          <span
+            className={`text-[10px] text-stone-400 dark:text-stone-500 font-normal transition-all duration-200 ease-out whitespace-nowrap overflow-hidden ${
+              collapsed ? 'opacity-0 max-w-0 pointer-events-none' : 'opacity-100 max-w-16'
+            }`}
+          >
+            Optional
+          </span>
         </button>
       )}
 
@@ -122,9 +144,11 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
               <button
                 type="button"
                 onClick={() => setShowGuideModal(false)}
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer shrink-0 shadow-xs"
+                aria-label="Close modal"
+                title="Close modal (Esc)"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5 stroke-[2.5]" />
               </button>
             </div>
 

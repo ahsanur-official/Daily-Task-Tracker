@@ -41,7 +41,7 @@ const MainContent: React.FC = () => {
             <img
               src="/logo.svg"
               alt="Daily Task Tracker"
-              className="w-16 h-16 rounded-2xl drop-shadow-md animate-pulse"
+              className="w-20 h-20 object-contain drop-shadow-md animate-pulse"
             />
           </div>
           <div>
@@ -92,19 +92,21 @@ const MainContent: React.FC = () => {
 
         {/* Dynamic View Route */}
         <main className="flex-1 min-w-0">
-          {activeView === 'dashboard' && (
-            <DashboardView onOpenCreateGoal={handleOpenCreateGoal} />
-          )}
-          {activeView === 'goals' && (
-            <GoalsView onOpenCreateGoal={handleOpenCreateGoal} />
-          )}
-          {activeView === 'calendar' && <CalendarView />}
-          {activeView === 'time' && <TimeTrackingView />}
-          {activeView === 'certificates' && <CertificatesView />}
-          {activeView === 'verify' && <VerifyCertificateView />}
-          {activeView === 'analytics' && <AnalyticsView />}
-          {activeView === 'profile' && <ProfileView />}
-          {activeView === 'settings' && <SettingsView />}
+          <div key={activeView} className="animate-fadeIn gpu-layer">
+            {activeView === 'dashboard' && (
+              <DashboardView onOpenCreateGoal={handleOpenCreateGoal} />
+            )}
+            {activeView === 'goals' && (
+              <GoalsView onOpenCreateGoal={handleOpenCreateGoal} />
+            )}
+            {activeView === 'calendar' && <CalendarView />}
+            {activeView === 'time' && <TimeTrackingView />}
+            {activeView === 'certificates' && <CertificatesView />}
+            {activeView === 'verify' && <VerifyCertificateView />}
+            {activeView === 'analytics' && <AnalyticsView />}
+            {activeView === 'profile' && <ProfileView />}
+            {activeView === 'settings' && <SettingsView />}
+          </div>
         </main>
       </div>
 

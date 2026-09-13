@@ -21,6 +21,9 @@ import {
   Cloud,
   CloudOff,
   HardDrive,
+  User,
+  ChevronRight,
+  Camera,
 } from 'lucide-react';
 import { exportDataAsJSON, exportSessionsAsCSV } from '../../utils/storage';
 import { PWAInstallButton } from '../common/PWAInstallButton';
@@ -45,6 +48,7 @@ export const SettingsView: React.FC = () => {
     isSyncing,
     syncNow,
     syncQueue,
+    setActiveView,
   } = useApp();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -104,7 +108,7 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 w-full max-w-[1400px] mx-auto pb-16">
+    <div className="space-y-8 w-full max-w-[1400px] mx-auto pb-16 animate-fadeIn gpu-layer">
       {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900 dark:text-stone-50">
@@ -116,6 +120,65 @@ export const SettingsView: React.FC = () => {
       </div>
 
       <div className="space-y-6">
+        {/* User Account & Profile Quick Access */}
+        {user && (
+          <div className="p-6 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-5">
+            <div className="flex items-center gap-4 text-center sm:text-left">
+              <div className="relative shrink-0">
+                <img
+                  src={user.avatarUrl}
+                  alt={user.fullName}
+                  className="w-16 h-16 rounded-2xl object-cover ring-2 ring-amber-500/50 shadow-md bg-stone-100 dark:bg-stone-800"
+                />
+                <span
+                  className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-md bg-amber-500 text-stone-950 font-bold text-[9px]"
+                  title={user.avatarStorageType === 'uploaded_device' ? 'Device storage image' : 'Avatar'}
+                >
+                  {user.avatarStorageType === 'uploaded_device' ? 'Device' : 'Active'}
+                </span>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                  <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
+                    {user.fullName}
+                  </h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                    {user.accountTier || 'Member'}
+                  </span>
+                </div>
+                <div className="text-xs text-stone-500 dark:text-stone-400 flex items-center gap-2 justify-center sm:justify-start mt-0.5">
+                  <span>@{user.username}</span>
+                  {user.occupation && (
+                    <>
+                      <span>•</span>
+                      <span>{user.occupation}</span>
+                    </>
+                  )}
+                  {user.location && (
+                    <>
+                      <span>•</span>
+                      <span>{user.location}</span>
+                    </>
+                  )}
+                </div>
+                <div className="text-[11px] text-stone-400 mt-1">
+                  Target: {user.preferredDailyWorkingHours || 4}h/day • {user.timeZone || 'UTC'}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveView('profile')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-stone-950 font-bold text-xs shadow-sm transition-all cursor-pointer shrink-0"
+            >
+              <User className="w-4 h-4" />
+              <span>Edit Full Profile & Photo</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Appearance Settings */}
         <div className="p-6 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs space-y-4">
           <h2 className="text-base font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">

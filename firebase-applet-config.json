@@ -3,6 +3,7 @@
   "appId": "1:512784929739:web:f693026c2302473e51dc4e",
   "apiKey": "AIzaSyC28IfeBezgMELWIZA02q7zOigjRpIhAD8",
   "authDomain": "tkwin-cccc9.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-dailytasktracker-4a1f1452-3db6-474e-a1c6-53cb4c709a25",
   "storageBucket": "tkwin-cccc9.firebasestorage.app",
   "messagingSenderId": "512784929739",
   "measurementId": "",

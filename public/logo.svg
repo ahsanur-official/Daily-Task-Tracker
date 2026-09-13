@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 650 650" width="600" height="600" preserveAspectRatio="xMidYMid meet" style="overflow: visible;">
   <defs>
     <!-- Outer Gradient Ring -->
     <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">

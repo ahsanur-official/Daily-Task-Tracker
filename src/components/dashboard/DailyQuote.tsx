@@ -5,6 +5,8 @@ import {
   Check,
   Sparkles,
   RotateCcw,
+  X,
+  ChevronDown,
 } from 'lucide-react';
 import { getDailyQuote, PREDEFINED_QUOTES, DailyQuoteItem } from '../../data/quotes';
 
@@ -18,6 +20,7 @@ export const DailyQuote: React.FC<DailyQuoteProps> = ({ todayDate, className = '
   const [currentQuote, setCurrentQuote] = useState<DailyQuoteItem>(defaultQuote);
   const [copied, setCopied] = useState(false);
   const [isCustomIndex, setIsCustomIndex] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Update when date changes
   useEffect(() => {
@@ -77,6 +80,27 @@ export const DailyQuote: React.FC<DailyQuoteProps> = ({ todayDate, className = '
 
   const badgeStyle = categoryColors[currentQuote.category] || categoryColors.Focus;
 
+  if (isCollapsed) {
+    return (
+      <div
+        id="daily-quote-card"
+        className={`flex items-center justify-between px-4 py-2.5 rounded-2xl bg-amber-500/5 dark:bg-stone-900/60 border border-stone-200/60 dark:border-stone-800 text-xs text-stone-600 dark:text-stone-300 transition-all ${className}`}
+      >
+        <div className="flex items-center gap-2 truncate">
+          <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <span className="truncate italic">"{currentQuote.quote}"</span>
+          <span className="font-semibold text-stone-400 shrink-0 hidden sm:inline">— {currentQuote.author}</span>
+        </div>
+        <button
+          onClick={() => setIsCollapsed(false)}
+          className="ml-2 px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors cursor-pointer shrink-0"
+        >
+          Expand
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       id="daily-quote-card"
@@ -129,7 +153,7 @@ export const DailyQuote: React.FC<DailyQuoteProps> = ({ todayDate, className = '
           </div>
         </div>
 
-        {/* Action Controls: Copy to Clipboard & Next Quote */}
+        {/* Action Controls: Copy, Next & Minimize */}
         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center pt-2 sm:pt-0">
           {/* Next Quote Button */}
           <button
@@ -160,9 +184,18 @@ export const DailyQuote: React.FC<DailyQuoteProps> = ({ todayDate, className = '
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5" />
-                <span>Copy Quote</span>
+                <span>Copy</span>
               </>
             )}
+          </button>
+
+          {/* Minimize / Close */}
+          <button
+            onClick={() => setIsCollapsed(true)}
+            className="p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+            title="Minimize quote to clean up dashboard"
+          >
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

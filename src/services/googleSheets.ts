@@ -68,7 +68,7 @@ class GoogleSheetsService {
    * Request Google OAuth token with spreadsheets scope using Google Identity Services (GIS)
    */
   public async requestOAuthToken(): Promise<string> {
-    const clientId = firebaseConfig.oAuthClientId;
+    const clientId = (firebaseConfig as any).oAuthClientId;
     if (!clientId) {
       throw new Error('OAuth Client ID is not configured in firebase-applet-config.json');
     }
@@ -186,16 +186,21 @@ class GoogleSheetsService {
       'Full Name',
       'Email',
       'Username',
-      'Occupation / Organization',
+      'Occupation',
+      'Company or School',
+      'Location',
+      'Bio',
       'Account Tier',
       'Daily Target (Hours)',
+      'Work Start Time',
+      'Work End Time',
+      'Working Days',
       'Current Streak (Days)',
       'Best Streak (Days)',
       'Total Focus Time (Hours)',
       'Total Goals',
-      'Total Tasks',
       'Completed Goals',
-      'Certificates Earned',
+      'Total Tasks',
       'Time Zone',
       'Last Backup Timestamp',
     ];
@@ -204,19 +209,24 @@ class GoogleSheetsService {
       userHeaders,
       [
         payload.user?.id || 'anonymous',
-        payload.user?.fullName || 'Productivity User',
+        payload.user?.fullName || 'Member',
         payload.user?.email || 'N/A',
         payload.user?.username || 'user',
-        `${payload.user?.occupation || 'Member'} ${payload.user?.companyOrSchool ? `@ ${payload.user?.companyOrSchool}` : ''}`,
+        payload.user?.occupation || '',
+        payload.user?.companyOrSchool || '',
+        payload.user?.location || '',
+        payload.user?.bio || '',
         payload.user?.accountTier || 'Standard Member',
         payload.user?.preferredDailyWorkingHours || 4,
+        payload.user?.preferredWorkStartTime || '09:00',
+        payload.user?.preferredWorkEndTime || '18:00',
+        (payload.user?.workingDays || []).join(', '),
         payload.streakDays || 0,
         payload.bestStreakDays || 0,
         Number(totalHours),
         payload.goals.length,
-        payload.tasks.length,
         payload.goals.filter((g) => g.status === 'completed').length,
-        payload.certificates.length,
+        payload.tasks.length,
         payload.user?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
         nowIso,
       ],
@@ -309,7 +319,7 @@ class GoogleSheetsService {
     ];
 
     // Push data via batchUpdate to ensure all sheets are populated in one shot
-    await this.updateSheetValues(token, spreadsheetId, 'User Details & Profiles!A1:P20', userRows);
+    await this.updateSheetValues(token, spreadsheetId, 'User Details & Profiles!A1:U20', userRows);
     await this.updateSheetValues(token, spreadsheetId, 'Goals & Targets!A1:J200', goalRows);
     await this.updateSheetValues(token, spreadsheetId, 'Daily Tasks!A1:H200', taskRows);
     await this.updateSheetValues(token, spreadsheetId, 'Focus Sessions!A1:G105', sessionRows);
@@ -320,6 +330,92 @@ class GoogleSheetsService {
       spreadsheetId,
       spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
     };
+  }
+
+  /**
+   * Fast real-time sync of User Profile directly to Google Sheet
+   */
+  public async syncUserProfileOnly(
+    token: string,
+    user: UserProfile,
+    extraMetrics?: { streakDays?: number; bestStreakDays?: number; totalHours?: number }
+  ): Promise<void> {
+    const spreadsheetId = await this.getOrCreateSpreadsheet(token);
+    const nowIso = new Date().toISOString();
+
+    const userRow = [
+      user.id,
+      user.fullName || 'Member',
+      user.email || '',
+      user.username || 'user',
+      user.occupation || '',
+      user.companyOrSchool || '',
+      user.location || '',
+      user.bio || '',
+      user.accountTier || 'Standard Member',
+      user.preferredDailyWorkingHours || 4,
+      user.preferredWorkStartTime || '09:00',
+      user.preferredWorkEndTime || '18:00',
+      (user.workingDays || []).join(', '),
+      extraMetrics?.streakDays ?? 0,
+      extraMetrics?.bestStreakDays ?? 0,
+      extraMetrics?.totalHours ?? 0,
+      '', // Total Goals
+      '', // Completed Goals
+      '', // Total Tasks
+      user.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      nowIso,
+    ];
+
+    await this.updateSheetValues(token, spreadsheetId, 'User Details & Profiles!A2:U2', [userRow]);
+    saveToLocalStorage(LAST_SYNCED_KEY, nowIso);
+  }
+
+  /**
+   * Read user details back from Google Sheet so user can manage profile in spreadsheet
+   */
+  public async pullUserProfileFromSheet(token: string): Promise<Partial<UserProfile> | null> {
+    const spreadsheetId = this.getStoredSpreadsheetId();
+    if (!spreadsheetId) return null;
+
+    const values = await this.fetchSheetValues(token, spreadsheetId, 'User Details & Profiles!A2:U2');
+    if (!values || values.length === 0 || !values[0] || values[0].length < 4) {
+      return null;
+    }
+
+    const row = values[0];
+    const pulledProfile: Partial<UserProfile> = {};
+
+    if (row[1] && String(row[1]).trim()) pulledProfile.fullName = String(row[1]).trim();
+    if (row[4] !== undefined) pulledProfile.occupation = String(row[4]).trim();
+    if (row[5] !== undefined) pulledProfile.companyOrSchool = String(row[5]).trim();
+    if (row[6] !== undefined) pulledProfile.location = String(row[6]).trim();
+    if (row[7] !== undefined) pulledProfile.bio = String(row[7]).trim();
+    if (row[8] && String(row[8]).trim()) pulledProfile.accountTier = String(row[8]).trim();
+    if (row[9] && !isNaN(Number(row[9]))) pulledProfile.preferredDailyWorkingHours = Number(row[9]);
+    if (row[10] && String(row[10]).trim()) pulledProfile.preferredWorkStartTime = String(row[10]).trim();
+    if (row[11] && String(row[11]).trim()) pulledProfile.preferredWorkEndTime = String(row[11]).trim();
+    if (row[12] && String(row[12]).trim()) {
+      pulledProfile.workingDays = String(row[12]).split(',').map((s) => s.trim()).filter(Boolean);
+    }
+    if (row[19] && String(row[19]).trim()) pulledProfile.timeZone = String(row[19]).trim();
+
+    return pulledProfile;
+  }
+
+  public async fetchSheetValues(token: string, spreadsheetId: string, range: string): Promise<any[][] | null> {
+    const encodedRange = encodeURIComponent(range);
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}`;
+    try {
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.values || null;
+    } catch {
+      return null;
+    }
   }
 
   private async updateSheetValues(

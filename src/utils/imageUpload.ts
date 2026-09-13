@@ -12,6 +12,44 @@ export interface ProcessedImageResult {
   height: number;
 }
 
+export const DEFAULT_STOCK_PHOTO = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80';
+
+export function isDefaultStockPhoto(url?: string | null): boolean {
+  if (!url) return true;
+  return url.includes('photo-1534528741775-53994a69daeb');
+}
+
+/**
+ * Generates an elegant SVG Data URL with user's initials and a modern amber-to-orange gradient
+ */
+export function generateInitialsAvatar(name?: string | null): string {
+  const clean = (name || 'User').trim();
+  const parts = clean.split(/[\s._-]+/).filter(Boolean);
+  let initials = 'U';
+  if (parts.length >= 2) {
+    initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  } else if (parts.length === 1 && parts[0].length >= 2) {
+    initials = parts[0].slice(0, 2).toUpperCase();
+  } else if (parts.length === 1) {
+    initials = parts[0][0].toUpperCase();
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="50%" stop-color="#ea580c" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+  </defs>
+  <rect width="160" height="160" rx="44" fill="url(#g)" />
+  <circle cx="80" cy="80" r="64" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="2" />
+  <text x="80" y="92" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="54" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="1">${initials}</text>
+</svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 export const PRESET_AVATARS = [
   {
     id: 'preset_1',
@@ -51,8 +89,8 @@ export const PRESET_AVATARS = [
  */
 export function processStorageImageFile(
   file: File,
-  maxDimension = 360,
-  quality = 0.88
+  maxDimension = 240,
+  quality = 0.82
 ): Promise<ProcessedImageResult> {
   return new Promise((resolve, reject) => {
     if (!file) {

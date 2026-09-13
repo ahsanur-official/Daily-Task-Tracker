@@ -106,6 +106,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
   const [signupLoading, setSignupLoading] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(true);
 
+  // Escape key dismiss listener
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsAuthModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, setIsAuthModalOpen]);
+
   if (!isOpen) return null;
 
   // File upload handler
@@ -158,7 +170,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
     setLoginError(null);
 
     if (!loginIdentifier.trim()) {
-      setLoginError('Please enter your email address.');
+      setLoginError('Please enter your email address or username.');
       return;
     }
     if (!loginPassword) {
@@ -204,32 +216,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
     e.preventDefault();
     setSignupError(null);
 
+    // If user is on Step 1, hitting enter or submitting MUST only validate and transition to Step 2!
+    if (signupStep === 1) {
+      if (!signupFullName.trim()) {
+        setSignupError('Please enter your full name.');
+        return;
+      }
+      if (!signupUsername.trim() || signupUsername.trim().length < 3) {
+        setSignupError('Username must be at least 3 characters.');
+        return;
+      }
+      if (!signupEmail.trim() || !signupEmail.includes('@')) {
+        setSignupError('Please enter a valid email address.');
+        return;
+      }
+      if (signupPassword.length < 6) {
+        setSignupError('Password must be at least 6 characters long.');
+        return;
+      }
+      if (signupPassword !== signupConfirmPassword) {
+        setSignupError('Passwords do not match. Please re-enter.');
+        return;
+      }
+      // Successfully passed step 1 -> proceed to step 2 for avatar, bio & schedule
+      setSignupStep(2);
+      return;
+    }
+
+    // ONLY in Step 2 does final submission and account creation happen
     if (!agreedTerms) {
       setSignupError('Please accept the Terms of Service to continue.');
-      return;
-    }
-
-    if (signupPassword !== signupConfirmPassword) {
-      setSignupError('Passwords do not match. Please re-enter.');
-      return;
-    }
-
-    if (signupPassword.length < 6) {
-      setSignupError('Password must be at least 6 characters long.');
       return;
     }
 
     setSignupLoading(true);
     try {
       const res = await signup({
-        fullName: signupFullName,
-        username: signupUsername,
-        email: signupEmail,
-        phone: signupPhone || undefined,
+        fullName: signupFullName.trim(),
+        username: signupUsername.trim().toLowerCase(),
+        email: signupEmail.trim(),
+        phone: signupPhone.trim() || undefined,
         password: signupPassword,
-        occupation: signupOccupation,
-        location: signupLocation,
-        bio: signupBio,
+        occupation: signupOccupation.trim() || 'Productivity Practitioner',
+        location: signupLocation.trim() || 'Global',
+        bio: signupBio.trim() || 'Committed to daily deliberate progress.',
         timeZone: signupTimezone,
         preferredDailyWorkingHours: signupDailyHours,
         preferredWorkStartTime: signupStartTime,
@@ -242,6 +272,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
         setSignupError(res.message || 'Registration failed.');
       } else {
         setIsAuthModalOpen(false);
+        setSignupStep(1);
       }
     } catch (err: any) {
       setSignupError(err?.message || 'Registration failed.');
@@ -284,17 +315,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
           <button
             type="button"
             onClick={() => setIsAuthModalOpen(false)}
-            className="absolute top-5 right-5 p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer z-10"
-            title="Close modal"
+            className="absolute top-4 right-4 w-10 h-10 rounded-xl text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white bg-white/90 dark:bg-stone-800/90 hover:bg-stone-100 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 flex items-center justify-center transition-all cursor-pointer z-20 shadow-xs"
+            title="Close modal (Esc)"
+            aria-label="Close modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 stroke-[2.5]" />
           </button>
 
           <div className="flex items-center gap-3 mb-2 pr-8">
             <img
               src="/logo.svg"
               alt="Daily Task Tracker"
-              className="w-11 h-11 rounded-2xl object-contain drop-shadow-xs"
+              className="w-11 h-11 object-contain shrink-0"
             />
             <div>
               <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100 tracking-tight flex items-center gap-2">
@@ -428,16 +460,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
               <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
-                    Email Address
+                    Email Address or Username
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
-                      type="email"
+                      type="text"
                       required
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder="you@example.com"
+                      placeholder="you@example.com or username"
+                      autoComplete="username"
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/70 text-stone-900 dark:text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-stone-400"
                     />
                   </div>
@@ -756,34 +789,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                     )}
 
                     <button
-                      type="button"
-                      onClick={() => {
-                        if (!signupFullName.trim()) {
-                          setSignupError('Please enter your full name.');
-                          return;
-                        }
-                        if (!signupUsername.trim()) {
-                          setSignupError('Please choose a unique username.');
-                          return;
-                        }
-                        if (!signupEmail.trim() || !signupEmail.includes('@')) {
-                          setSignupError('Please enter a valid email address.');
-                          return;
-                        }
-                        if (signupPassword.length < 6) {
-                          setSignupError('Password must be at least 6 characters.');
-                          return;
-                        }
-                        if (signupPassword !== signupConfirmPassword) {
-                          setSignupError('Passwords do not match.');
-                          return;
-                        }
-                        setSignupError(null);
-                        setSignupStep(2);
-                      }}
-                      className="w-full mt-2 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
+                      type="submit"
+                      className="w-full mt-2 py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs"
                     >
-                      <span>Continue to Profile Setup</span>
+                      <span>Continue to Profile Setup (Step 2 of 2)</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -791,6 +800,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
 
                 {signupStep === 2 && (
                   <div className="space-y-4">
+                    {/* Step 2 Header Banner */}
+                    <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+                      <div className="font-semibold flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-amber-500 text-stone-950 flex items-center justify-center text-[11px] font-bold">2</span>
+                        <span>Step 2 of 2: Profile & Schedule (Final)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSignupStep(1)}
+                        className="text-[11px] underline font-medium hover:text-stone-900 dark:hover:text-stone-100 cursor-pointer"
+                      >
+                        Back to Credentials
+                      </button>
+                    </div>
                     {/* Image Input from Storage System */}
                     <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-800">
                       <label className="block text-xs font-bold text-stone-900 dark:text-stone-100 mb-2 flex items-center gap-1.5">
@@ -1112,9 +1135,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                   setShowForgotPassword(false);
                   setForgotSentMessage(null);
                 }}
-                className="p-1 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 cursor-pointer"
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer shadow-xs"
+                title="Close (Esc)"
+                aria-label="Close forgot password modal"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
 

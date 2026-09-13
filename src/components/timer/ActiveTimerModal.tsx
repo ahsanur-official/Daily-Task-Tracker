@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Play, Pause, Square, Minimize2, CheckCircle2, Flame, Bell } from 'lucide-react';
+import { Play, Pause, Square, Minimize2, CheckCircle2, Flame, Bell, X } from 'lucide-react';
 import { formatSecondsToDigital, formatSecondsToHuman } from '../../utils/time';
 
 export const ActiveTimerModal: React.FC = () => {
@@ -15,6 +15,18 @@ export const ActiveTimerModal: React.FC = () => {
   } = useApp();
 
   const [currentElapsed, setCurrentElapsed] = useState(0);
+
+  // Escape key closes distraction free mode
+  useEffect(() => {
+    if (!activeTimer?.isDistractionFree) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setDistractionFree(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTimer?.isDistractionFree, setDistractionFree]);
 
   // Live timestamp-based calculation for ultra-smooth UI display
   useEffect(() => {
@@ -61,13 +73,24 @@ export const ActiveTimerModal: React.FC = () => {
           </span>
         </div>
 
-        <button
-          onClick={() => setDistractionFree(false)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-800/80 hover:bg-stone-700/80 text-stone-300 text-xs font-medium transition-colors"
-        >
-          <Minimize2 className="w-4 h-4" />
-          <span>Exit Focus Mode</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setDistractionFree(false)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-800/80 hover:bg-stone-700/80 text-stone-300 text-xs font-medium transition-colors cursor-pointer"
+          >
+            <Minimize2 className="w-4 h-4" />
+            <span>Exit Focus</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setDistractionFree(false)}
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-stone-300 hover:text-white bg-stone-800/90 hover:bg-stone-700/90 border border-stone-700/70 transition-colors cursor-pointer shadow-xs shrink-0"
+            aria-label="Close focus timer modal"
+            title="Close modal (Esc)"
+          >
+            <X className="w-5 h-5 stroke-[2.5]" />
+          </button>
+        </div>
       </div>
 
       {/* Main Focus Center */}

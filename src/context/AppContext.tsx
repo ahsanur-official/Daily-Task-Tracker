@@ -24,7 +24,7 @@ import {
   generateVerificationHash,
   addDaysToDateString,
 } from '../utils/time';
-import { calculateDayProgress, calculateStreaks } from '../utils/recovery';
+import { calculateDayProgress, calculateStreaks, evaluateGoalProgress } from '../utils/recovery';
 import {
   notifyTimerSessionComplete,
   notifyTaskDeadlineReached,
@@ -37,6 +37,10 @@ import {
   googleSheetsService,
   GoogleSheetsSyncStatus,
 } from '../services/googleSheets';
+import {
+  generateInitialsAvatar,
+  isDefaultStockPhoto,
+} from '../utils/imageUpload';
 import {
   auth,
   db,
@@ -181,6 +185,7 @@ interface AppContextType {
   sheetsStatus: GoogleSheetsSyncStatus;
   connectAndSyncGoogleSheets: () => Promise<void>;
   disconnectGoogleSheets: () => void;
+  pullUserProfileFromGoogleSheets: () => Promise<{ success: boolean; message: string }>;
 
   // Theme & Appearance
   theme: 'light' | 'dark' | 'system';
@@ -386,6 +391,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (unsubCertificates) { unsubCertificates(); unsubCertificates = null; }
 
       if (!fUser) {
+        // Check if device is offline or if a local cached user exists to avoid wiping offline data
+        const cachedUser = loadFromLocalStorage<UserProfile | null>(STORAGE_KEYS.USER_PROFILE, null);
+        if (!navigator.onLine && cachedUser) {
+          setUser(cachedUser);
+          setIsAuthLoading(false);
+          return;
+        }
+
         setUser(null);
         setGoals([]);
         setTasks([]);
@@ -411,6 +424,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setIsFirestoreConnected(true);
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
+            // If user has the generic default stock photo, replace with personalized initials avatar
+            if (isDefaultStockPhoto(data.avatarUrl) && data.avatarStorageType !== 'uploaded_device') {
+              data.avatarUrl = generateInitialsAvatar(data.fullName || data.username);
+            }
             setUser(data);
           } else {
             // Document does not exist yet (e.g. fresh Google Sign-in)
@@ -424,10 +441,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               fullName: fallbackName,
               username: fallbackUsername,
               email: fUser.email || '',
-              bio: 'Committed to daily deliberate progress.',
-              occupation: 'Productivity Practitioner',
-              location: 'Global',
-              avatarUrl: fUser.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+              bio: 'Daily deliberate progress and disciplined goal tracking.',
+              occupation: '',
+              location: '',
+              avatarUrl: fUser.photoURL || generateInitialsAvatar(fallbackName),
               avatarStorageType: fUser.photoURL ? 'url' : 'preset',
               timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
               preferredDailyWorkingHours: 4,
@@ -447,15 +464,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             try {
               await setDoc(userDocRef, initialProfile);
               setUser(initialProfile);
+              if (fallbackUsername && fUser.email) {
+                try {
+                  await setDoc(doc(db, 'usernames', fallbackUsername), {
+                    email: fUser.email.toLowerCase(),
+                    uid,
+                    createdAt: new Date().toISOString(),
+                  });
+                } catch {
+                  // Non-fatal fallback
+                }
+              }
             } catch (createErr) {
-              handleFirestoreError(createErr, OperationType.CREATE, `users/${uid}`);
+              console.warn('Initial profile doc creation notice:', createErr);
+              setUser(initialProfile);
             }
           }
         }, (err) => {
-          handleFirestoreError(err, OperationType.GET, `users/${uid}`);
+          console.warn('User profile snapshot warning:', err);
+          setIsFirestoreConnected(false);
         });
 
-        // 2. Subscribe to Goals
+        // 2. Subscribe to Goals (Merge keeping offline pending items)
         const goalsQuery = query(collection(db, 'goals'), where('userId', '==', uid));
         unsubGoals = onSnapshot(goalsQuery, (snapshot) => {
           setIsFirestoreConnected(true);
@@ -463,12 +493,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           snapshot.forEach((d) => {
             loadedGoals.push(d.data() as Goal);
           });
-          setGoals(loadedGoals);
+          setGoals((prev) => {
+            const serverIds = new Set(loadedGoals.map((g) => g.id));
+            const pendingLocal = prev.filter((g) => !serverIds.has(g.id));
+            return [...loadedGoals, ...pendingLocal];
+          });
         }, (err) => {
           handleFirestoreError(err, OperationType.LIST, 'goals');
         });
 
-        // 3. Subscribe to Tasks
+        // 3. Subscribe to Tasks (Merge keeping offline pending items)
         const tasksQuery = query(collection(db, 'tasks'), where('userId', '==', uid));
         unsubTasks = onSnapshot(tasksQuery, (snapshot) => {
           setIsFirestoreConnected(true);
@@ -476,12 +510,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           snapshot.forEach((d) => {
             loadedTasks.push(d.data() as Task);
           });
-          setTasks(loadedTasks);
+          setTasks((prev) => {
+            const serverIds = new Set(loadedTasks.map((t) => t.id));
+            const pendingLocal = prev.filter((t) => !serverIds.has(t.id));
+            return [...loadedTasks, ...pendingLocal];
+          });
         }, (err) => {
           handleFirestoreError(err, OperationType.LIST, 'tasks');
         });
 
-        // 4. Subscribe to Sessions
+        // 4. Subscribe to Sessions (Merge keeping offline pending items)
         const sessionsQuery = query(collection(db, 'sessions'), where('userId', '==', uid));
         unsubSessions = onSnapshot(sessionsQuery, (snapshot) => {
           setIsFirestoreConnected(true);
@@ -489,12 +527,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           snapshot.forEach((d) => {
             loadedSessions.push(d.data() as TimeSession);
           });
-          setSessions(loadedSessions);
+          setSessions((prev) => {
+            const serverIds = new Set(loadedSessions.map((s) => s.id));
+            const pendingLocal = prev.filter((s) => !serverIds.has(s.id));
+            return [...loadedSessions, ...pendingLocal];
+          });
         }, (err) => {
           handleFirestoreError(err, OperationType.LIST, 'sessions');
         });
 
-        // 5. Subscribe to Certificates
+        // 5. Subscribe to Certificates (Merge keeping offline pending items)
         const certsQuery = query(collection(db, 'certificates'), where('userId', '==', uid));
         unsubCertificates = onSnapshot(certsQuery, (snapshot) => {
           setIsFirestoreConnected(true);
@@ -502,7 +544,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           snapshot.forEach((d) => {
             loadedCerts.push(d.data() as Certificate);
           });
-          setCertificates(loadedCerts);
+          setCertificates((prev) => {
+            const serverIds = new Set(loadedCerts.map((c) => c.id));
+            const pendingLocal = prev.filter((c) => !serverIds.has(c.id));
+            return [...loadedCerts, ...pendingLocal];
+          });
         }, (err) => {
           handleFirestoreError(err, OperationType.LIST, 'certificates');
         });
@@ -1122,6 +1168,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const goal = goals.find((g) => g.id === id);
       if (!goal) return null;
 
+      // Verification guard: Ensure goal is 100% completed before certificate can be generated
+      const progress = evaluateGoalProgress(goal, tasks, sessions);
+      if (!progress.isFulfilled && progress.percentage < 100) {
+        alert(
+          `Cannot generate certificate: Course/Goal is incomplete! You have completed ${progress.fulfilledDaysCount} of ${goal.durationDays} days (${progress.percentage}%). You must complete 100% of all required daily tasks to receive your official certificate.`
+        );
+        return null;
+      }
+
       const certId = generateCertificateId();
       const goalSessions = sessions.filter((s) => s.goalId === id);
       const totalTrackedSeconds = goalSessions.reduce((acc, s) => acc + s.durationSeconds, 0);
@@ -1162,7 +1217,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCelebratingGoal(goal);
       return cert;
     },
-    [goals, sessions, user, todayDate, updateGoal, enqueueSyncItem, removeSyncItems, openAuthModal]
+    [goals, tasks, sessions, user, todayDate, updateGoal, enqueueSyncItem, removeSyncItems, openAuthModal]
   );
 
   const deleteGoal = useCallback(
@@ -1357,37 +1412,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: true };
     } catch (err: any) {
       console.error('Google Sign-In Error:', err);
+      let msg = err?.message || 'Google sign-in failed. Please try again.';
+      if (err?.code === 'auth/popup-blocked') {
+        msg = 'Browser blocked the Google popup window. Please allow popups for this site, or sign in using your email and password.';
+      } else if (err?.code === 'auth/cancelled-popup-request' || err?.code === 'auth/popup-closed-by-user') {
+        msg = 'Google sign-in was cancelled.';
+      } else if (err?.code === 'auth/network-request-failed') {
+        msg = 'Network error during Google sign-in. Please check your internet connection.';
+      }
       return {
         success: false,
-        message: err?.message || 'Google sign-in failed. Please try again.',
+        message: msg,
       };
     }
   }, []);
 
   const login = useCallback(
-    async (email: string, pass: string): Promise<{ success: boolean; message?: string }> => {
-      const trimmed = email.trim();
+    async (identifier: string, pass: string): Promise<{ success: boolean; message?: string }> => {
+      const trimmed = (identifier || '').trim();
       if (!trimmed) {
-        return { success: false, message: 'Please enter your email address.' };
+        return { success: false, message: 'Please enter your email address or username.' };
       }
       if (!pass) {
         return { success: false, message: 'Please enter your password.' };
       }
 
+      let emailToUse = trimmed;
+      // If the identifier is a username without '@', look up their registered email from Firestore
+      if (!trimmed.includes('@')) {
+        const cleanUser = trimmed.toLowerCase().replace(/[^a-z0-9_.-]/g, '');
+        try {
+          const usernameDoc = await getDoc(doc(db, 'usernames', cleanUser));
+          if (usernameDoc.exists() && usernameDoc.data()?.email) {
+            emailToUse = usernameDoc.data().email;
+          } else {
+            return {
+              success: false,
+              message: `No account found with username "${trimmed}". Please use your registered email address.`,
+            };
+          }
+        } catch (lookupErr) {
+          console.warn('Username resolution error:', lookupErr);
+          return {
+            success: false,
+            message: `Could not verify username "${trimmed}". Please enter your full email address.`,
+          };
+        }
+      }
+
       try {
-        await signInWithEmailAndPassword(auth, trimmed, pass);
+        await signInWithEmailAndPassword(auth, emailToUse.toLowerCase(), pass);
         setIsAuthModalOpen(false);
         return { success: true };
       } catch (err: any) {
+        console.error('Firebase Auth sign-in error:', err);
         let msg = err?.message || 'Login failed.';
         if (err?.code === 'auth/user-not-found' || err?.code === 'auth/invalid-credential') {
-          msg = 'Invalid credentials. Please verify your email and password.';
+          msg = 'Invalid credentials. Please verify your email/username and password.';
         } else if (err?.code === 'auth/wrong-password') {
-          msg = 'Incorrect password.';
+          msg = 'Incorrect password. Please try again or use "Forgot password".';
         } else if (err?.code === 'auth/invalid-email') {
           msg = 'Please enter a valid email address.';
         } else if (err?.code === 'auth/too-many-requests') {
-          msg = 'Too many failed attempts. Please try again later or reset password.';
+          msg = 'Too many failed login attempts. Please wait a few minutes or reset your password.';
+        } else if (err?.code === 'auth/network-request-failed') {
+          msg = 'Network connection problem. Please verify your internet connection.';
         }
         return { success: false, message: msg };
       }
@@ -1436,23 +1525,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         const uid = cred.user.uid;
 
-        const newProfile: UserProfile = {
+        // Build object without any undefined fields to comply strictly with Firestore requirements
+        const newProfile: Record<string, any> = {
           id: uid,
           fullName: cleanFullName,
           username: cleanUsername,
           email: cleanEmail,
-          phone: data.phone?.trim() || undefined,
-          bio: data.bio?.trim() || 'Discipline over motivation. Committed to daily deliberate progress.',
-          occupation: data.occupation?.trim() || 'Productivity Practitioner',
-          companyOrSchool: data.companyOrSchool?.trim() || undefined,
-          location: data.location?.trim() || 'Global',
-          website: data.website?.trim() || undefined,
-          github: data.github?.trim() || undefined,
-          linkedin: data.linkedin?.trim() || undefined,
-          twitter: data.twitter?.trim() || undefined,
+          bio: data.bio?.trim() || 'Committed to daily deliberate progress.',
+          occupation: data.occupation?.trim() || '',
+          location: data.location?.trim() || '',
           avatarUrl:
-            data.avatarUrl ||
-            `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80`,
+            data.avatarUrl && !isDefaultStockPhoto(data.avatarUrl)
+              ? data.avatarUrl
+              : generateInitialsAvatar(cleanFullName),
           avatarStorageType: data.avatarStorageType || 'preset',
           timeZone: data.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
           preferredDailyWorkingHours: Number(data.preferredDailyWorkingHours) || 4,
@@ -1469,8 +1554,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           lastLoginAt: new Date().toISOString(),
         };
 
+        if (data.phone?.trim()) newProfile.phone = data.phone.trim();
+        if (data.companyOrSchool?.trim()) newProfile.companyOrSchool = data.companyOrSchool.trim();
+        if (data.website?.trim()) newProfile.website = data.website.trim();
+        if (data.github?.trim()) newProfile.github = data.github.trim();
+        if (data.linkedin?.trim()) newProfile.linkedin = data.linkedin.trim();
+        if (data.twitter?.trim()) newProfile.twitter = data.twitter.trim();
+
         await setDoc(doc(db, 'users', uid), newProfile);
-        setUser(newProfile);
+
+        // Also save public username mapping for quick login
+        try {
+          await setDoc(doc(db, 'usernames', cleanUsername), {
+            email: cleanEmail,
+            uid: uid,
+            createdAt: new Date().toISOString(),
+          });
+        } catch (uErr) {
+          console.warn('Could not register public username mapping:', uErr);
+        }
+
+        setUser(newProfile as UserProfile);
         setIsAuthModalOpen(false);
         return { success: true };
       } catch (err: any) {
@@ -1528,27 +1632,96 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         openAuthModal('login');
         return;
       }
-      setUser((prev) => (prev ? { ...prev, ...data } : null));
+      const uid = auth.currentUser.uid;
 
-      if (data.theme) {
-        setThemeState(data.theme);
-        saveToLocalStorage(STORAGE_KEYS.THEME_PREFERENCE, data.theme);
+      // Sanitize data: remove any undefined values so Firestore never rejects
+      const cleanData: Record<string, any> = {};
+      for (const [key, val] of Object.entries(data)) {
+        if (val !== undefined) {
+          cleanData[key] = val;
+        }
       }
 
-      if (user) {
-        enqueueSyncItem('users', 'update', user.id, data);
+      // 1. Immediately update React state and LocalStorage for zero-lag instant UI
+      setUser((prev) => {
+        const base = prev || ({
+          id: uid,
+          fullName: auth.currentUser?.displayName || 'Member',
+          username: auth.currentUser?.email?.split('@')[0] || 'user',
+          email: auth.currentUser?.email || '',
+          createdAt: getTodayDateString(),
+        } as UserProfile);
+        const updated = { ...base, ...cleanData };
+        saveToLocalStorage(STORAGE_KEYS.USER_PROFILE, updated);
+        return updated;
+      });
 
-        if (navigator.onLine && auth.currentUser) {
-          try {
-            await updateDoc(doc(db, 'users', user.id), data);
-            removeSyncItems([user.id]);
-          } catch (err) {
-            console.warn('Update user profile queued for online sync:', err);
-          }
+      if (cleanData.theme) {
+        setThemeState(cleanData.theme);
+        saveToLocalStorage(STORAGE_KEYS.THEME_PREFERENCE, cleanData.theme);
+      }
+
+      // If avatar was uploaded from device, also save to dedicated device avatar key
+      if (cleanData.avatarUrl && cleanData.avatarStorageType === 'uploaded_device') {
+        saveToLocalStorage('daily_task_tracker_device_avatar', cleanData.avatarUrl);
+      }
+
+      // 2. Queue for offline sync
+      enqueueSyncItem('users', 'update', uid, cleanData);
+
+      // 3. Persist to Firestore cloud database
+      if (navigator.onLine && auth.currentUser) {
+        try {
+          const userDocRef = doc(db, 'users', uid);
+          await setDoc(userDocRef, cleanData, { merge: true });
+          removeSyncItems([uid]);
+        } catch (err) {
+          console.warn('Update user profile queued for online sync:', err);
+        }
+      }
+
+      // 4. If username changed, update public usernames registry
+      if (cleanData.username) {
+        try {
+          await setDoc(
+            doc(db, 'usernames', cleanData.username.toLowerCase()),
+            {
+              email: (auth.currentUser.email || cleanData.email || '').toLowerCase(),
+              uid,
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        } catch (uErr) {
+          console.warn('Could not register username update:', uErr);
+        }
+      }
+
+      // 5. If Google Sheets is connected, auto-sync user profile row
+      if (navigator.onLine && sheetsStatus.connected) {
+        const token = googleSheetsService.hasToken()
+          ? loadFromLocalStorage<string | null>('dt_google_sheets_token', null)
+          : null;
+        if (token) {
+          const totalMinutes = sessions.reduce((acc, s) => acc + Math.round(s.durationSeconds / 60), 0);
+          const totalHours = Number((totalMinutes / 60).toFixed(1));
+          googleSheetsService
+            .syncUserProfileOnly(
+              token,
+              { ...(user || {}), ...cleanData } as UserProfile,
+              {
+                streakDays: streakInfo.currentStreak,
+                bestStreakDays: streakInfo.bestStreak,
+                totalHours,
+              }
+            )
+            .catch((sErr) => {
+              console.warn('Background Google Sheets profile sync note:', sErr);
+            });
         }
       }
     },
-    [user, enqueueSyncItem, removeSyncItems, openAuthModal]
+    [enqueueSyncItem, removeSyncItems, openAuthModal, sheetsStatus.connected, sessions, streakInfo, user]
   );
 
   const deleteAccount = useCallback(async () => {
@@ -1737,6 +1910,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
+  const pullUserProfileFromGoogleSheets = useCallback(async (): Promise<{ success: boolean; message: string }> => {
+    try {
+      let token = googleSheetsService.hasToken()
+        ? loadFromLocalStorage<string | null>('dt_google_sheets_token', null)
+        : null;
+      if (!token) {
+        token = await googleSheetsService.requestOAuthToken();
+      }
+      const pulledData = await googleSheetsService.pullUserProfileFromSheet(token);
+      if (!pulledData || Object.keys(pulledData).length === 0) {
+        return {
+          success: false,
+          message: 'No profile details found in Google Sheet row yet. Try syncing first.',
+        };
+      }
+      await updateProfile(pulledData);
+      return {
+        success: true,
+        message: 'Profile refreshed with details from Google Sheet!',
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || 'Failed to pull profile details from Google Sheets',
+      };
+    }
+  }, [updateProfile]);
+
   return (
     <AppContext.Provider
       value={{
@@ -1803,6 +2004,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sheetsStatus,
         connectAndSyncGoogleSheets,
         disconnectGoogleSheets,
+        pullUserProfileFromGoogleSheets,
         theme,
         isDark,
         setTheme,

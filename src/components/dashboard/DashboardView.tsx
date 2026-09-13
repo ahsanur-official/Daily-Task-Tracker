@@ -53,6 +53,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
   const [activeTaskNotesId, setActiveTaskNotesId] = useState<string | null>(null);
   const [selectedTaskForCalendar, setSelectedTaskForCalendar] = useState<Task | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   useEffect(() => {
     if (!activeTimer) {
@@ -317,8 +318,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
         </div>
       )}
 
-      {/* 3. Streaks & Consistency Heatmap (Past Month Progress) */}
-      <StreakHeatmap />
+      {/* 3. Streaks & Consistency Heatmap (Collapsible to keep Dashboard clean) */}
+      <div className="rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/60 dark:bg-stone-900/60 overflow-hidden shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setShowHeatmap((prev) => !prev)}
+          className="w-full p-4 sm:px-5 flex items-center justify-between text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-50/80 dark:hover:bg-stone-800/50 transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+              <Flame className="w-4 h-4 fill-current" />
+            </div>
+            <div>
+              <span className="font-bold text-stone-900 dark:text-stone-100">Consistency Heatmap & History</span>
+              <span className="text-[11px] text-stone-400 block sm:inline sm:ml-2">
+                {streakInfo.currentStreak} day streak • Click to {showHeatmap ? 'collapse' : 'view full 30-day grid'}
+              </span>
+            </div>
+          </div>
+          <span className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 shrink-0">
+            <span>{showHeatmap ? 'Hide' : 'Show'}</span>
+            <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-200 ${showHeatmap ? 'rotate-90' : ''}`} />
+          </span>
+        </button>
+
+        {showHeatmap && (
+          <div className="p-4 sm:p-5 border-t border-stone-200/60 dark:border-stone-800 animate-in fade-in duration-200">
+            <StreakHeatmap />
+          </div>
+        )}
+      </div>
 
       {/* 4. Today's Tasks Section */}
       <div className="space-y-4">
@@ -591,69 +620,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
         )}
       </div>
 
-      {/* 4. Active Goals Overview Strip */}
-      <div className="space-y-4 pt-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight text-stone-900 dark:text-stone-100">
-            Active Goals ({goals.filter((g) => g.status === 'active').length})
-          </h2>
+      {/* 5. Active Goals Quick Status Bar */}
+      {goals.filter((g) => g.status === 'active').length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-stone-50/80 dark:bg-stone-900/60 border border-stone-200/70 dark:border-stone-800">
+          <div className="flex items-center gap-3">
+            <div className="flex -space-x-1.5 overflow-hidden shrink-0">
+              {goals
+                .filter((g) => g.status === 'active')
+                .slice(0, 4)
+                .map((goal) => (
+                  <span
+                    key={goal.id}
+                    className="inline-block w-4 h-4 rounded-full ring-2 ring-white dark:ring-stone-900"
+                    style={{ backgroundColor: goal.color }}
+                    title={goal.title}
+                  />
+                ))}
+            </div>
+            <div>
+              <span className="text-xs font-bold text-stone-800 dark:text-stone-200">
+                {goals.filter((g) => g.status === 'active').length} Active Long-term {goals.filter((g) => g.status === 'active').length === 1 ? 'Goal' : 'Goals'}
+              </span>
+              <span className="text-[11px] text-stone-500 dark:text-stone-400 block">
+                Manage milestones, view completion rates, or generate certificates in Goals.
+              </span>
+            </div>
+          </div>
           <button
+            type="button"
             onClick={() => setActiveView('goals')}
-            className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+            className="self-end sm:self-center flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-500 cursor-pointer shrink-0"
           >
-            <span>View All</span>
+            <span>Open Goals</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {goals
-            .filter((g) => g.status === 'active')
-            .map((goal) => {
-              const goalTasks = tasks.filter((t) => t.goalId === goal.id);
-              const goalSessions = sessions.filter((s) => s.goalId === goal.id);
-              const trackedSecs = goalSessions.reduce((a, s) => a + s.durationSeconds, 0);
-              const dailyReqSecs = goalTasks.reduce((a, t) => a + t.requiredDurationMinutes * 60, 0);
-              const totalGoalReqSecs = dailyReqSecs * goal.durationDays;
-              const pct = totalGoalReqSecs > 0 ? Math.min(100, Math.round((trackedSecs / totalGoalReqSecs) * 100)) : 0;
-
-              return (
-                <div
-                  key={goal.id}
-                  onClick={() => setActiveView('goals')}
-                  className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700 transition-all cursor-pointer shadow-xs group"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: goal.color }}
-                    />
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400">
-                      {goal.durationDays} Days
-                    </span>
-                  </div>
-
-                  <h3 className="font-bold text-stone-900 dark:text-stone-100 text-sm group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate">
-                    {goal.title}
-                  </h3>
-
-                  <p className="text-xs text-stone-500 dark:text-stone-400 line-clamp-1 mt-0.5">
-                    {goal.description || `${goalTasks.length} daily tasks`}
-                  </p>
-
-                  <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800/80 flex items-center justify-between text-xs">
-                    <span className="text-stone-500 font-mono">
-                      {formatSecondsToHuman(trackedSecs)} / {formatSecondsToHuman(totalGoalReqSecs)}
-                    </span>
-                    <span className="font-bold font-mono text-stone-900 dark:text-stone-100">
-                      {pct}%
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      </div>
+      )}
 
       {/* Individual Task Calendar Modal */}
       {selectedTaskForCalendar && (

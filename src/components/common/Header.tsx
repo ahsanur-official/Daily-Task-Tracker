@@ -11,16 +11,13 @@ import {
   Maximize2,
   ShieldCheck,
   User,
-  Users,
   LogOut,
-  UserPlus,
   KeyRound,
   ChevronDown,
   Sparkles,
   Cloud,
 } from 'lucide-react';
 import { formatSecondsToDigital } from '../../utils/time';
-import { PWAInstallButton } from './PWAInstallButton';
 
 export const Header: React.FC = () => {
   const {
@@ -38,7 +35,6 @@ export const Header: React.FC = () => {
     setActiveView,
     openAuthModal,
     logout,
-    registeredAccounts,
     isDark,
     toggleTheme,
   } = useApp();
@@ -71,7 +67,7 @@ export const Header: React.FC = () => {
             <img
               src="/logo.svg"
               alt="Daily Task Tracker Logo"
-              className="w-9 h-9 rounded-xl object-contain drop-shadow-xs group-hover:scale-105 transition-transform"
+              className="w-9 h-9 object-contain drop-shadow-xs group-hover:scale-105 transition-transform"
             />
             <div className="hidden sm:block">
               <span className="font-bold text-stone-900 dark:text-stone-100 tracking-tight text-base block leading-none">
@@ -182,9 +178,6 @@ export const Header: React.FC = () => {
             <span>Verify</span>
           </button>
 
-          {/* Install App Button */}
-          <PWAInstallButton variant="header" />
-
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
@@ -257,34 +250,7 @@ export const Header: React.FC = () => {
                       <span>View Detailed Profile</span>
                     </button>
 
-                    <button
-                      onClick={() => {
-                        setIsAccountMenuOpen(false);
-                        openAuthModal('switch');
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors text-left cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Users className="w-4 h-4 text-stone-400" />
-                        <span>Switch Account</span>
-                      </div>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500">
-                        {registeredAccounts.length}
-                      </span>
-                    </button>
-
-                        <button
-                          onClick={() => {
-                            setIsAccountMenuOpen(false);
-                            openAuthModal('register');
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors text-left cursor-pointer"
-                        >
-                          <UserPlus className="w-4 h-4 text-stone-400" />
-                          <span>Register Another Account</span>
-                        </button>
-
-                        <div className="my-1 border-t border-stone-100 dark:border-stone-800" />
+                    <div className="my-1 border-t border-stone-100 dark:border-stone-800" />
 
                     <button
                       onClick={() => {

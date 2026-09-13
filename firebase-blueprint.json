@@ -27,6 +27,8 @@
         "theme": { "type": "string", "enum": ["light", "dark", "system"] },
         "accentColor": { "type": "string", "maxLength": 20 },
         "notificationsEnabled": { "type": "boolean" },
+        "timerNotificationsEnabled": { "type": "boolean" },
+        "deadlineNotificationsEnabled": { "type": "boolean" },
         "soundEnabled": { "type": "boolean" },
         "accountTier": { "type": "string", "maxLength": 50 },
         "createdAt": { "type": "string", "maxLength": 50 },

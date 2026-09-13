@@ -88,6 +88,12 @@ service cloud.firestore {
       allow get: if true;
     }
 
+    // Username lookup for login
+    match /usernames/{username} {
+      allow get: if true;
+      allow create, update: if isSignedIn();
+    }
+
     // User profiles
     match /users/{userId} {
       allow get: if isOwner(userId);
@@ -99,7 +105,8 @@ service cloud.firestore {
                         'twitter', 'avatarUrl', 'avatarStorageType', 'timeZone',
                         'preferredDailyWorkingHours', 'preferredWorkStartTime', 'preferredWorkEndTime',
                         'workingDays', 'primaryCategory', 'theme', 'accentColor',
-                        'notificationsEnabled', 'soundEnabled', 'accountTier', 'lastLoginAt'
+                        'notificationsEnabled', 'timerNotificationsEnabled', 'deadlineNotificationsEnabled',
+                        'soundEnabled', 'accountTier', 'lastLoginAt'
                       ]);
       allow delete: if isOwner(userId);
     }
