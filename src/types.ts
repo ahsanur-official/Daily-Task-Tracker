@@ -80,6 +80,10 @@ export interface Goal {
   endDate: string; // YYYY-MM-DD
   status: GoalStatus;
   motivationalQuote?: string;
+  reminderEnabled?: boolean;
+  reminderTime?: string; // e.g. "09:00" in 24h
+  reminderDays?: string[]; // e.g. ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  lastReminderDate?: string; // YYYY-MM-DD
   createdAt: string;
   completedAt?: string;
   certificateId?: string;

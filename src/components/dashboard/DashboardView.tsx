@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import { AnimatedRingProgress } from '../common/AnimatedRingProgress';
 import { useApp } from '../../context/AppContext';
 import {
   Flame,
@@ -302,49 +303,60 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
       {/* 2. Today's Key Metrics Card (Matching Prompt Specification) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Metric 1: Today's Time Progress */}
-        <div className="md:col-span-2 p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                Today's Target
-              </span>
+        <div className="md:col-span-2 p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-xs relative overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                  Today's Target
+                </span>
+              </div>
+              {todayProgress.recoverySeconds > 0 && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                  <RotateCcw className="w-3 h-3" />
+                  Includes Recovery
+                </span>
+              )}
             </div>
-            {todayProgress.recoverySeconds > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
-                <RotateCcw className="w-3 h-3" />
-                Includes Recovery
-              </span>
-            )}
-          </div>
 
-          <div className="flex items-baseline justify-between mb-2">
-            <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-stone-900 dark:text-stone-100 font-mono">
-              {formatSecondsToHuman(todayProgress.completedSeconds)}{' '}
-              <span className="text-xl sm:text-2xl font-normal text-stone-400">
-                / {formatSecondsToHuman(todayProgress.totalRequiredSeconds)}
-              </span>
-            </div>
-            <div className="text-right">
-              <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
-                {todayProgress.percentage}%
-              </span>
-              <span className="text-xs text-stone-400 block">Completed</span>
-            </div>
-          </div>
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div>
+                <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-stone-900 dark:text-stone-100 font-mono">
+                  {formatSecondsToHuman(todayProgress.completedSeconds)}{' '}
+                  <span className="text-xl sm:text-2xl font-normal text-stone-400">
+                    / {formatSecondsToHuman(todayProgress.totalRequiredSeconds)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                      isDayFullyCompleted
+                        ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300'
+                        : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
+                    }`}
+                  >
+                    {isDayFullyCompleted && <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
+                    <span>{isDayFullyCompleted ? 'Day Completed' : 'In Progress'}</span>
+                  </span>
+                </div>
+              </div>
 
-          {/* Progress Bar */}
-          <div className="w-full h-3 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden my-3">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                isDayFullyCompleted ? 'bg-emerald-500' : 'bg-amber-500'
-              }`}
-              style={{ width: `${Math.min(100, todayProgress.percentage)}%` }}
-            />
+              {/* Animated SVG Ring Chart */}
+              <div className="shrink-0 flex items-center">
+                <AnimatedRingProgress
+                  progress={todayProgress.percentage}
+                  size={76}
+                  strokeWidth={7}
+                  color={isDayFullyCompleted ? '#10b981' : '#f59e0b'}
+                  glow={isDayFullyCompleted}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Subtext Breakdown: Normal vs Recovery */}
-          <div className="flex flex-wrap items-center justify-between text-xs text-stone-500 dark:text-stone-400 pt-2 border-t border-stone-100 dark:border-stone-800/80">
+          <div className="flex flex-wrap items-center justify-between text-xs text-stone-500 dark:text-stone-400 pt-3 border-t border-stone-100 dark:border-stone-800/80">
             <div className="flex items-center gap-4">
               <span>
                 Normal:{' '}
@@ -667,124 +679,146 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">
-            {filteredTasks.map((tp) => {
-              const isTimerActiveOnThisTask = activeTimer && activeTimer.taskId === tp.taskId;
-              const isTimerRunningOnThisTask =
-                isTimerActiveOnThisTask && activeTimer.isRunning;
-              const isTimerPausedOnThisTask =
-                isTimerActiveOnThisTask && !activeTimer.isRunning;
+            <AnimatePresence mode="popLayout">
+              {filteredTasks.map((tp, idx) => {
+                const isTimerActiveOnThisTask = activeTimer && activeTimer.taskId === tp.taskId;
+                const isTimerRunningOnThisTask =
+                  isTimerActiveOnThisTask && activeTimer.isRunning;
+                const isTimerPausedOnThisTask =
+                  isTimerActiveOnThisTask && !activeTimer.isRunning;
 
-              const taskObj = tasks.find((t) => t.id === tp.taskId);
+                const taskObj = tasks.find((t) => t.id === tp.taskId);
+                const taskProgressPercent = tp.isCompleted
+                  ? 100
+                  : Math.min(100, Math.round((tp.completedSeconds / Math.max(1, tp.totalRequiredSeconds)) * 100));
 
-              return (
-                <div
-                  key={tp.taskId}
-                  className={`rounded-2xl border transition-all ${
-                    isCompactDensity ? 'p-3.5 sm:p-4' : 'p-5'
-                  } ${
-                    tp.isCompleted
-                      ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/40'
-                      : isTimerActiveOnThisTask
-                      ? 'bg-amber-50/60 dark:bg-amber-950/30 border-amber-400 dark:border-amber-600/60 ring-2 ring-amber-500/20'
-                      : 'bg-white dark:bg-stone-900 border-stone-200/80 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700 shadow-xs'
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    {/* Left: Task Meta */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: tp.goalColor }}
-                        />
-                        <span className="text-xs font-medium text-stone-500 dark:text-stone-400 truncate">
-                          {tp.goalTitle}
-                        </span>
-                        {/* Custom Color Label Badge */}
-                        {tp.goalColorLabel && (
-                          <span
-                            className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
-                            style={{
-                              backgroundColor: `${tp.goalColor}18`,
-                              borderColor: `${tp.goalColor}40`,
-                              color: tp.goalColor,
-                            }}
-                          >
+                return (
+                  <motion.div
+                    key={tp.taskId}
+                    layout
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.28, delay: Math.min(idx * 0.04, 0.25) }}
+                    className={`rounded-2xl border transition-all ${
+                      isCompactDensity ? 'p-3.5 sm:p-4' : 'p-5'
+                    } ${
+                      tp.isCompleted
+                        ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/40'
+                        : isTimerActiveOnThisTask
+                        ? 'bg-amber-50/60 dark:bg-amber-950/30 border-amber-400 dark:border-amber-600/60 ring-2 ring-amber-500/20'
+                        : 'bg-white dark:bg-stone-900 border-stone-200/80 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700 shadow-xs'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      {/* Left: Task Meta & Progress Ring */}
+                      <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                        {/* Task Real-time SVG Ring Progress */}
+                        <div className="shrink-0">
+                          <AnimatedRingProgress
+                            progress={taskProgressPercent}
+                            size={44}
+                            strokeWidth={4.5}
+                            color={tp.goalColor}
+                            glow={tp.isCompleted}
+                          />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span
-                              className="w-1.5 h-1.5 rounded-full shrink-0"
+                              className="w-2 h-2 rounded-full shrink-0"
                               style={{ backgroundColor: tp.goalColor }}
                             />
-                            <span>{tp.goalColorLabel}</span>
-                          </span>
-                        )}
-                        {tp.recoverySeconds > 0 && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                            +{formatSecondsToHuman(tp.recoverySeconds)} Recovery
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 truncate">
-                          {tp.taskTitle}
-                        </h3>
-                        {tp.isCompleted && (
-                          <div className="inline-flex items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/70 px-2.5 py-0.5 rounded-full">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Completed
+                            <span className="text-xs font-medium text-stone-500 dark:text-stone-400 truncate">
+                              {tp.goalTitle}
                             </span>
-                            {streakInfo.isStreakMaintainedToday && (
+                            {/* Custom Color Label Badge */}
+                            {tp.goalColorLabel && (
                               <span
-                                className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-700 dark:text-orange-300 bg-orange-100/90 dark:bg-orange-950/60 border border-orange-200 dark:border-orange-800/60 px-2 py-0.5 rounded-full"
-                                title="Task contributed to extending today's streak"
+                                className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
+                                style={{
+                                  backgroundColor: `${tp.goalColor}18`,
+                                  borderColor: `${tp.goalColor}40`,
+                                  color: tp.goalColor,
+                                }}
                               >
-                                <Flame className="w-3 h-3 text-orange-500 fill-orange-500 animate-pulse" />
-                                <span>Streak Active</span>
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: tp.goalColor }}
+                                />
+                                <span>{tp.goalColorLabel}</span>
+                              </span>
+                            )}
+                            {tp.recoverySeconds > 0 && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                                +{formatSecondsToHuman(tp.recoverySeconds)} Recovery
                               </span>
                             )}
                           </div>
-                        )}
 
-                        {/* Deadline Indicator Pill */}
-                        {taskObj?.deadlineTime && (
-                          <span
-                            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                              !tp.isCompleted &&
-                              new Date().toTimeString().slice(0, 5) >= taskObj.deadlineTime
-                                ? 'bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900'
-                                : 'bg-stone-100 dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-stone-700'
-                            }`}
-                            title={`Task deadline: ${taskObj.deadlineTime}`}
-                          >
-                            <Clock className="w-3 h-3 text-amber-500" />
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 truncate">
+                              {tp.taskTitle}
+                            </h3>
+                            {tp.isCompleted && (
+                              <div className="inline-flex items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/70 px-2.5 py-0.5 rounded-full">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  Completed
+                                </span>
+                                {streakInfo.isStreakMaintainedToday && (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-700 dark:text-orange-300 bg-orange-100/90 dark:bg-orange-950/60 border border-orange-200 dark:border-orange-800/60 px-2 py-0.5 rounded-full"
+                                    title="Task contributed to extending today's streak"
+                                  >
+                                    <Flame className="w-3 h-3 text-orange-500 fill-orange-500 animate-pulse" />
+                                    <span>Streak Active</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Deadline Indicator Pill */}
+                            {taskObj?.deadlineTime && (
+                              <span
+                                className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                                  !tp.isCompleted &&
+                                  new Date().toTimeString().slice(0, 5) >= taskObj.deadlineTime
+                                    ? 'bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900'
+                                    : 'bg-stone-100 dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 border border-stone-200/60 dark:border-stone-700'
+                                }`}
+                                title={`Task deadline: ${taskObj.deadlineTime}`}
+                              >
+                                <Clock className="w-3 h-3 text-amber-500" />
+                                <span>
+                                  {!tp.isCompleted &&
+                                  new Date().toTimeString().slice(0, 5) >= taskObj.deadlineTime
+                                    ? `Overdue (${taskObj.deadlineTime})`
+                                    : `Due ${taskObj.deadlineTime}`}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Time Duration Row */}
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 dark:text-stone-400 mt-2 font-mono">
                             <span>
-                              {!tp.isCompleted &&
-                              new Date().toTimeString().slice(0, 5) >= taskObj.deadlineTime
-                                ? `Overdue (${taskObj.deadlineTime})`
-                                : `Due ${taskObj.deadlineTime}`}
+                              Target: <strong>{formatSecondsToHuman(tp.totalRequiredSeconds)}</strong>
                             </span>
-                          </span>
-                        )}
+                            <span>•</span>
+                            <span className="text-stone-800 dark:text-stone-200">
+                              Tracked: <strong>{formatSecondsToHuman(tp.completedSeconds)}</strong>
+                            </span>
+                            <span>•</span>
+                            <span>
+                              Remaining: <strong>{formatSecondsToHuman(tp.remainingSeconds)}</strong>
+                            </span>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Time Duration Row */}
-                      <div className="flex items-center gap-4 text-xs text-stone-500 dark:text-stone-400 mt-2 font-mono">
-                        <span>
-                          Required: <strong>{formatSecondsToHuman(tp.totalRequiredSeconds)}</strong>
-                        </span>
-                        <span>•</span>
-                        <span className="text-stone-800 dark:text-stone-200">
-                          Tracked: <strong>{formatSecondsToHuman(tp.completedSeconds)}</strong>
-                        </span>
-                        <span>•</span>
-                        <span>
-                          Remaining: <strong>{formatSecondsToHuman(tp.remainingSeconds)}</strong>
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Right: Actions */}
+                      {/* Right: Actions */}
                     <div className="flex items-center gap-2 shrink-0">
                       {/* Individual Task Calendar button */}
                       <button
@@ -977,9 +1011,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
                       </div>
                     </div>
                   )}
-                </div>
+                </motion.div>
               );
             })}
+            </AnimatePresence>
           </div>
         )}
       </div>

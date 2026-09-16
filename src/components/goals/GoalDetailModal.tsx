@@ -13,11 +13,16 @@ import {
   AlertCircle,
   FileText,
   Lock,
+  Bell,
+  BellRing,
 } from 'lucide-react';
 import { Goal, Task } from '../../types';
 import { formatSecondsToHuman, formatFullDateLabel, getDaysDifference } from '../../utils/time';
 import { evaluateGoalProgress } from '../../utils/recovery';
 import { TaskCalendarModal } from '../calendar/TaskCalendarModal';
+import { ModalPortal } from '../common/ModalPortal';
+import { AnimatedRingProgress } from '../common/AnimatedRingProgress';
+import { motion } from 'motion/react';
 
 interface GoalDetailModalProps {
   goal: Goal | null;
@@ -28,6 +33,7 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
   const {
     tasks,
     sessions,
+    updateGoal,
     pauseGoal,
     resumeGoal,
     completeGoal,
@@ -36,9 +42,13 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
     user,
     setActiveView,
     setTargetVerifyId,
+    triggerGoalReminderAlert,
+    notificationPermission,
+    requestNotificationAccess,
   } = useApp();
 
   const [selectedTaskForCalendar, setSelectedTaskForCalendar] = useState<Task | null>(null);
+  const [reminderTestSent, setReminderTestSent] = useState(false);
 
   if (!goal) return null;
 
@@ -95,74 +105,75 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
   };
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto cursor-pointer"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Goal Details Modal"
-    >
+    <ModalPortal isOpen={!!goal}>
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-2xl shadow-2xl overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-200 cursor-default"
+        onClick={onClose}
+        className="fixed inset-0 z-[100] bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto cursor-pointer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Goal Details Modal"
       >
-        {/* Mandatory, Always-Visible 'X' Close Button in Top-Right Corner */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-4 right-4 sm:top-5 sm:right-5 z-20 w-10 h-10 rounded-xl flex items-center justify-center text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white bg-white/95 hover:bg-stone-100 dark:bg-stone-800/95 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-all shrink-0 cursor-pointer shadow-sm"
-          aria-label="Close goal details modal"
-          title="Close modal (Esc)"
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-2xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200 cursor-default"
         >
-          <X className="w-5 h-5 stroke-[2.5]" />
-        </button>
+          {/* Mandatory, Always-Visible 'X' Close Button in Top-Right Corner */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 z-20 w-10 h-10 rounded-xl flex items-center justify-center text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white bg-white/95 hover:bg-stone-100 dark:bg-stone-800/95 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-all shrink-0 cursor-pointer shadow-xs"
+            aria-label="Close goal details modal"
+            title="Close modal (Esc)"
+          >
+            <X className="w-5 h-5 stroke-[2.5]" />
+          </button>
 
-        {/* Header */}
-        <div className="p-5 sm:p-6 pr-16 sm:pr-20 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <span
-              className="w-4 h-4 rounded-full shrink-0"
-              style={{ backgroundColor: goal.color }}
-            />
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100 truncate">
-                  {goal.title}
-                </h2>
-                {goal.colorLabel && (
+          {/* Header */}
+          <div className="shrink-0 p-5 sm:p-6 pr-16 sm:pr-20 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span
+                className="w-4 h-4 rounded-full shrink-0"
+                style={{ backgroundColor: goal.color }}
+              />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100 truncate">
+                    {goal.title}
+                  </h2>
+                  {goal.colorLabel && (
+                    <span
+                      className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
+                      style={{
+                        backgroundColor: `${goal.color}18`,
+                        borderColor: `${goal.color}40`,
+                        color: goal.color,
+                      }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: goal.color }} />
+                      <span>{goal.colorLabel}</span>
+                    </span>
+                  )}
                   <span
-                    className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
-                    style={{
-                      backgroundColor: `${goal.color}18`,
-                      borderColor: `${goal.color}40`,
-                      color: goal.color,
-                    }}
+                    className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                      isCompleted
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        : isPaused
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        : 'bg-stone-100 text-stone-800 dark:bg-stone-800 dark:text-stone-300'
+                    }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: goal.color }} />
-                    <span>{goal.colorLabel}</span>
+                    {goal.status}
                   </span>
-                )}
-                <span
-                  className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${
-                    isCompleted
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                      : isPaused
-                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                      : 'bg-stone-100 text-stone-800 dark:bg-stone-800 dark:text-stone-300'
-                  }`}
-                >
-                  {goal.status}
-                </span>
+                </div>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                  {goal.category} • {goal.durationDays} Days challenge
+                </p>
               </div>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                {goal.category} • {goal.durationDays} Days challenge
-              </p>
             </div>
           </div>
-        </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+          {/* Content - Scrollable */}
+          <div className="flex-1 p-6 space-y-6 overflow-y-auto">
           {/* Motivation or Description */}
           {goal.description && (
             <p className="text-sm text-stone-600 dark:text-stone-300">
@@ -176,58 +187,58 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
             </div>
           )}
 
-          {/* Key Metrics Grid (Section 15 Specification) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-700">
-              <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block">
-                Timeline Day
-              </span>
-              <span className="text-xl font-bold font-mono text-stone-900 dark:text-stone-100 mt-1 block">
-                {currentDayNumber} / {goal.durationDays}
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-700">
-              <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block">
-                Completion
-              </span>
-              <span className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-1 block">
-                {progressMetrics.percentage}%
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-700">
-              <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block">
-                Tracked Time
-              </span>
-              <span className="text-xl font-bold font-mono text-stone-900 dark:text-stone-100 mt-1 block">
-                {formatSecondsToHuman(progressMetrics.totalCompletedSeconds)}
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-700">
-              <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block">
-                Remaining
-              </span>
-              <span className="text-xl font-bold font-mono text-stone-900 dark:text-stone-100 mt-1 block">
-                {formatSecondsToHuman(progressMetrics.remainingSeconds)}
-              </span>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div>
-            <div className="flex items-center justify-between text-xs text-stone-500 mb-1.5">
-              <span>Overall Target Progress</span>
-              <span className="font-mono font-semibold text-stone-800 dark:text-stone-200">
-                {formatSecondsToHuman(progressMetrics.totalCompletedSeconds)} / {formatSecondsToHuman(progressMetrics.totalRequiredSeconds)}
-              </span>
-            </div>
-            <div className="w-full h-3 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-amber-500 transition-all duration-500"
-                style={{ width: `${Math.min(100, progressMetrics.percentage)}%` }}
+          {/* Hero Goal Completion Progress Card with Animated SVG Ring */}
+          <div className="p-5 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200/80 dark:border-stone-700/80 flex flex-col sm:flex-row items-center gap-6">
+            <div className="shrink-0 flex flex-col items-center">
+              <AnimatedRingProgress
+                progress={progressMetrics.percentage}
+                size={96}
+                strokeWidth={8}
+                color={goal.color}
+                glow={isCompleted}
+                subtitle="Goal"
               />
+              <span className="text-[11px] font-mono font-bold text-stone-500 dark:text-stone-400 mt-1">
+                {isCompleted ? 'Target Achieved' : `${progressMetrics.percentage}% Completed`}
+              </span>
+            </div>
+
+            <div className="flex-1 w-full grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/60 dark:border-stone-700/60">
+                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+                  Timeline Day
+                </span>
+                <span className="text-lg font-bold font-mono text-stone-900 dark:text-stone-100 mt-0.5 block">
+                  {currentDayNumber} <span className="text-xs font-normal text-stone-400">/ {goal.durationDays}d</span>
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/60 dark:border-stone-700/60">
+                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+                  Status
+                </span>
+                <span className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5 block capitalize">
+                  {goal.status}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/60 dark:border-stone-700/60">
+                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+                  Tracked Time
+                </span>
+                <span className="text-base font-bold font-mono text-stone-900 dark:text-stone-100 mt-0.5 block">
+                  {formatSecondsToHuman(progressMetrics.totalCompletedSeconds)}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/60 dark:border-stone-700/60">
+                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
+                  Remaining
+                </span>
+                <span className="text-base font-bold font-mono text-stone-900 dark:text-stone-100 mt-0.5 block">
+                  {formatSecondsToHuman(progressMetrics.remainingSeconds)}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -299,14 +310,98 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
             )}
           </div>
 
+          {/* Daily Notification Reminder Settings (Notifications API) */}
+          <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                    Daily Notification Reminder
+                  </h4>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                    Alerts you to complete your daily tasks for this goal
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!goal.reminderEnabled && notificationPermission !== 'granted') {
+                    requestNotificationAccess();
+                  }
+                  updateGoal(goal.id, {
+                    reminderEnabled: !goal.reminderEnabled,
+                    reminderTime: goal.reminderTime || '09:00',
+                  });
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                  goal.reminderEnabled ? 'bg-amber-500' : 'bg-stone-300 dark:bg-stone-700'
+                }`}
+                role="switch"
+                aria-checked={goal.reminderEnabled}
+                title="Toggle daily reminder"
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                    goal.reminderEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {goal.reminderEnabled && (
+              <div className="pt-2 border-t border-amber-500/15 flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-150">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-xs font-semibold text-stone-700 dark:text-stone-300">
+                    Reminder Time:
+                  </span>
+                  <input
+                    type="time"
+                    value={goal.reminderTime || '09:00'}
+                    onChange={(e) => updateGoal(goal.id, { reminderTime: e.target.value })}
+                    className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono shadow-xs"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (notificationPermission !== 'granted') {
+                        requestNotificationAccess().then(() => {
+                          triggerGoalReminderAlert(goal);
+                          setReminderTestSent(true);
+                          setTimeout(() => setReminderTestSent(false), 3000);
+                        });
+                      } else {
+                        triggerGoalReminderAlert(goal);
+                        setReminderTestSent(true);
+                        setTimeout(() => setReminderTestSent(false), 3000);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 hover:bg-amber-500/10 text-stone-700 dark:text-stone-300 hover:text-amber-600 border border-stone-200 dark:border-stone-700 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+                  >
+                    <BellRing className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{reminderTestSent ? 'Reminder Alert Sent!' : 'Test Daily Alert'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Actions & Certificate Button */}
-          <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-3">
+          <div className="shrink-0 p-4 sm:p-5 border-t border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-3 bg-stone-50/50 dark:bg-stone-900/50">
             <div className="flex items-center gap-2">
               {!isCompleted && (
                 <button
                   type="button"
                   onClick={handleTogglePause}
-                  className="px-4 py-2 rounded-xl border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center gap-1.5 transition-colors"
+                  className="px-4 py-2 rounded-xl border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   {isPaused ? (
                     <>
@@ -325,7 +420,7 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
               <button
                 type="button"
                 onClick={handleDelete}
-                className="px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                className="px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete</span>
@@ -384,5 +479,6 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
         />
       )}
     </div>
+    </ModalPortal>
   );
 };

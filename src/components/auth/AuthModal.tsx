@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PRESET_AVATARS, processStorageImageFile } from '../../utils/imageUpload';
+import { ModalPortal } from '../common/ModalPortal';
 
 interface AuthModalProps {
   forceOpen?: boolean;
@@ -302,12 +303,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-md animate-fadeIn overflow-y-auto"
-      onClick={() => setIsAuthModalOpen(false)}
-    >
+    <ModalPortal isOpen={isOpen}>
       <div
+        className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-md animate-fadeIn overflow-y-auto"
+        onClick={() => setIsAuthModalOpen(false)}
+      >
+        <div
         className="relative w-full max-w-xl bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -1215,5 +1219,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
         </div>
       )}
     </div>
+    </ModalPortal>
   );
 };

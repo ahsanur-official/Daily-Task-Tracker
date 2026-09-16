@@ -16,8 +16,11 @@ import {
   ChevronDown,
   Sparkles,
   Cloud,
+  MoreHorizontal,
+  Settings,
 } from 'lucide-react';
 import { formatSecondsToDigital } from '../../utils/time';
+import { PWAInstallButton } from './PWAInstallButton';
 
 export const Header: React.FC = () => {
   const {
@@ -41,12 +44,17 @@ export const Header: React.FC = () => {
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
         setIsAccountMenuOpen(false);
+      }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setIsMoreMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -188,6 +196,92 @@ export const Header: React.FC = () => {
             {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
           </button>
 
+          {/* More Functions Menu (containing App Install button, Settings, Verification, etc.) */}
+          <div className="relative" ref={moreMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                isMoreMenuOpen
+                  ? 'border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-400 shadow-xs ring-2 ring-amber-500/20'
+                  : 'border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+              }`}
+              title="More functions and app options"
+              aria-label="More options"
+              aria-expanded={isMoreMenuOpen}
+            >
+              <MoreHorizontal className="w-4 h-4 text-stone-600 dark:text-stone-300" />
+              <span className="hidden sm:inline">More</span>
+            </button>
+
+            {/* Dropdown Menu with App Install prominently placed */}
+            {isMoreMenuOpen && (
+              <div className="absolute right-0 mt-2 w-80 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xl p-3 z-50 animate-fadeIn space-y-3">
+                <div className="px-2 pt-1 pb-1 flex items-center justify-between border-b border-stone-100 dark:border-stone-800">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400">
+                    More Functions
+                  </span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500">
+                    Menu
+                  </span>
+                </div>
+
+                {/* App Installation Option inside More Function */}
+                <div>
+                  <PWAInstallButton
+                    variant="more-menu"
+                    onCloseMenu={() => setIsMoreMenuOpen(false)}
+                  />
+                </div>
+
+                {/* Additional Quick Actions */}
+                <div className="space-y-1 pt-1 border-t border-stone-100 dark:border-stone-800">
+                  <button
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      setActiveView('settings');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-2xl transition-colors text-left cursor-pointer"
+                  >
+                    <Settings className="w-4 h-4 text-stone-400" />
+                    <div className="min-w-0 flex-1">
+                      <span className="block font-semibold">Preferences & Storage Sync</span>
+                      <span className="block text-[10px] text-stone-400">Cloud backups & timers</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      setActiveView('verify');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-2xl transition-colors text-left cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-stone-400" />
+                    <div className="min-w-0 flex-1">
+                      <span className="block font-semibold">Verify Certificate ID</span>
+                      <span className="block text-[10px] text-stone-400">Validate official credentials</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      setActiveView('profile');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-2xl transition-colors text-left cursor-pointer"
+                  >
+                    <User className="w-4 h-4 text-stone-400" />
+                    <div className="min-w-0 flex-1">
+                      <span className="block font-semibold">Profile & Account</span>
+                      <span className="block text-[10px] text-stone-400">Manage photo and discipline stats</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* User Profile / Account Menu */}
           {user ? (
             <div className="relative" ref={accountMenuRef}>
@@ -249,6 +343,12 @@ export const Header: React.FC = () => {
                       <User className="w-4 h-4 text-amber-500" />
                       <span>View Detailed Profile</span>
                     </button>
+
+                    {/* Install App inside dropdown */}
+                    <PWAInstallButton
+                      variant="menu-item"
+                      onCloseMenu={() => setIsAccountMenuOpen(false)}
+                    />
 
                     <div className="my-1 border-t border-stone-100 dark:border-stone-800" />
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, Plus, Trash2, Calendar, Target, Sparkles, Tag, Palette } from 'lucide-react';
+import { X, Plus, Trash2, Calendar, Target, Sparkles, Tag, Palette, Bell, Clock } from 'lucide-react';
 import { GoalCategory, GoalDurationOption } from '../../types';
 import { addDaysToDateString, formatSecondsToHuman } from '../../utils/time';
+import { ModalPortal } from '../common/ModalPortal';
 
 interface CreateGoalModalProps {
   isOpen: boolean;
@@ -43,7 +44,7 @@ const PRESET_COLOR_LABELS = [
 ];
 
 export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClose }) => {
-  const { createGoal, todayDate } = useApp();
+  const { createGoal, todayDate, notificationPermission, requestNotificationAccess } = useApp();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -54,6 +55,10 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
   const [customDays, setCustomDays] = useState(21);
   const [startDate, setStartDate] = useState(todayDate);
   const [motivationalQuote, setMotivationalQuote] = useState('');
+
+  // Daily Notification Reminder Settings
+  const [reminderEnabled, setReminderEnabled] = useState(true);
+  const [reminderTime, setReminderTime] = useState('09:00');
 
   // Daily Tasks under this goal
   const [taskList, setTaskList] = useState<
@@ -146,6 +151,8 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
         endDate,
         status: 'active',
         motivationalQuote: motivationalQuote.trim() || undefined,
+        reminderEnabled,
+        reminderTime,
       },
       validTasks
     );
@@ -154,42 +161,46 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
   };
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-    >
+    <ModalPortal isOpen={isOpen}>
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-2xl shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200"
+        onClick={onClose}
+        className="fixed inset-0 z-[100] bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Create New Goal Dialog"
       >
-        {/* Mandatory, Always-Visible 'X' Close Button in Top-Right Corner */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-4 right-4 sm:top-5 sm:right-5 z-20 w-10 h-10 rounded-xl flex items-center justify-center text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white bg-white/95 hover:bg-stone-100 dark:bg-stone-800/95 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-all shrink-0 cursor-pointer shadow-sm"
-          aria-label="Close create goal modal"
-          title="Close modal (Esc)"
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-2xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200"
         >
-          <X className="w-5 h-5 stroke-[2.5]" />
-        </button>
+          {/* Mandatory, Always-Visible 'X' Close Button in Top-Right Corner */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 z-20 w-10 h-10 rounded-xl flex items-center justify-center text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white bg-white/95 hover:bg-stone-100 dark:bg-stone-800/95 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-all shrink-0 cursor-pointer shadow-xs"
+            aria-label="Close create goal modal"
+            title="Close modal (Esc)"
+          >
+            <X className="w-5 h-5 stroke-[2.5]" />
+          </button>
 
-        {/* Modal Header */}
-        <div className="p-6 pr-16 sm:pr-20 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-              <Target className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100 truncate">Create New Goal</h2>
-              <p className="text-xs text-stone-500 dark:text-stone-400">
-                Design a structured timeline with time-tracked daily tasks.
-              </p>
+          {/* Modal Header */}
+          <div className="shrink-0 p-6 pr-16 sm:pr-20 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <Target className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100 truncate">Create New Goal</h2>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Design a structured timeline with time-tracked daily tasks.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+          {/* Modal Form with Scrollable Body */}
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* 1. Basic Info */}
           <div className="space-y-4">
             <div>
@@ -468,7 +479,100 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
             </div>
           </div>
 
-          {/* 4. Optional Motivational Quote */}
+          {/* 4. Daily Notification Reminder (Notifications API) */}
+          <div className="space-y-3 pt-4 border-t border-stone-100 dark:border-stone-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-stone-900 dark:text-stone-100">
+                    Daily Notification Reminder
+                  </label>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                    Receive a browser notification reminder every day for this goal.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!reminderEnabled && notificationPermission !== 'granted') {
+                    requestNotificationAccess();
+                  }
+                  setReminderEnabled(!reminderEnabled);
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                  reminderEnabled ? 'bg-amber-500' : 'bg-stone-300 dark:bg-stone-700'
+                }`}
+                role="switch"
+                aria-checked={reminderEnabled}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                    reminderEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {reminderEnabled && (
+              <div className="p-3.5 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 space-y-3 animate-in fade-in duration-200">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <span className="text-xs font-semibold text-stone-800 dark:text-stone-200">
+                      Reminder Time:
+                    </span>
+                    <input
+                      type="time"
+                      value={reminderTime}
+                      onChange={(e) => setReminderTime(e.target.value)}
+                      className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono shadow-xs"
+                    />
+                  </div>
+
+                  {/* Quick Time Presets */}
+                  <div className="flex items-center gap-1.5">
+                    {[
+                      { label: 'Morning', time: '09:00' },
+                      { label: 'Afternoon', time: '14:00' },
+                      { label: 'Evening', time: '20:00' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.time}
+                        type="button"
+                        onClick={() => setReminderTime(preset.time)}
+                        className={`text-[11px] px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                          reminderTime === preset.time
+                            ? 'bg-amber-500 text-stone-950 font-bold'
+                            : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {notificationPermission !== 'granted' && (
+                  <div className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+                    <span>Browser permission needed for desktop alerts</span>
+                    <button
+                      type="button"
+                      onClick={requestNotificationAccess}
+                      className="px-2.5 py-1 rounded-lg bg-amber-500 text-stone-950 font-bold text-[11px] hover:bg-amber-400 transition-colors shadow-xs"
+                    >
+                      Allow Notifications
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 5. Optional Motivational Quote */}
           <div className="pt-4 border-t border-stone-100 dark:border-stone-800">
             <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
               Motivational Quote (Optional)
@@ -487,13 +591,13 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
+              className="px-4 py-2 text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 text-sm font-bold rounded-xl bg-stone-900 hover:bg-stone-800 dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-stone-950 shadow-xs transition-colors"
+              className="px-6 py-2.5 text-sm font-bold rounded-xl bg-stone-900 hover:bg-stone-800 dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-stone-950 shadow-xs transition-colors cursor-pointer"
             >
               Create Goal
             </button>
@@ -501,5 +605,6 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
         </form>
       </div>
     </div>
+    </ModalPortal>
   );
 };

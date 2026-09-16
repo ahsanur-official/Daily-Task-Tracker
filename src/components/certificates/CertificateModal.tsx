@@ -5,6 +5,7 @@ import { Certificate } from '../../types';
 import { renderCertificateToCanvas, downloadCertificateAsImage, getCertificateVerifyUrl } from '../../utils/certificate';
 import { formatSecondsToHuman, formatFullDateLabel } from '../../utils/time';
 import { QRCodeView } from '../common/QRCodeView';
+import { ModalPortal } from '../common/ModalPortal';
 
 interface CertificateModalProps {
   certificate: Certificate | null;
@@ -70,30 +71,31 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ certificate,
   };
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 bg-stone-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto cursor-pointer"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Certificate Modal"
-    >
+    <ModalPortal isOpen={!!certificate}>
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-4xl shadow-2xl overflow-hidden my-6 animate-in zoom-in-95 duration-200 cursor-default"
+        onClick={onClose}
+        className="fixed inset-0 z-[100] bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto cursor-pointer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Certificate Modal"
       >
-        {/* Mandatory, Always-Visible 'X' Close Button in the Top-Right Corner */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-4 right-4 sm:top-5 sm:right-5 z-30 w-10 h-10 rounded-xl flex items-center justify-center text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white bg-white/95 hover:bg-stone-100 dark:bg-stone-800/95 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-all shadow-sm cursor-pointer"
-          aria-label="Close certificate modal"
-          title="Close modal (Esc)"
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-4xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200 cursor-default"
         >
-          <X className="w-5 h-5 stroke-[2.5]" />
-        </button>
+          {/* Mandatory, Always-Visible 'X' Close Button in the Top-Right Corner */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 z-30 w-10 h-10 rounded-xl flex items-center justify-center text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white bg-white/95 hover:bg-stone-100 dark:bg-stone-800/95 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-all shadow-xs cursor-pointer"
+            aria-label="Close certificate modal"
+            title="Close modal (Esc)"
+          >
+            <X className="w-5 h-5 stroke-[2.5]" />
+          </button>
 
-        {/* Top Controls Bar */}
-        <div className="p-4 sm:p-6 pr-16 sm:pr-20 border-b border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-4">
+          {/* Top Controls Bar */}
+          <div className="shrink-0 p-4 sm:p-6 pr-16 sm:pr-20 border-b border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
               <Sparkles className="w-5 h-5" />
@@ -214,7 +216,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ certificate,
         </div>
 
         {/* Bottom Actions Bar */}
-        <div className="p-4 sm:p-6 border-t border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-3">
+        <div className="shrink-0 p-4 sm:p-6 border-t border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-stone-900">
           <div className="flex items-center gap-2">
             <button
               onClick={handleGoToVerification}
@@ -262,6 +264,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ certificate,
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Play, Pause, Square, Minimize2, CheckCircle2, Flame, Bell, X } from 'lucide-react';
 import { formatSecondsToDigital, formatSecondsToHuman } from '../../utils/time';
+import { ModalPortal } from '../common/ModalPortal';
 
 export const ActiveTimerModal: React.FC = () => {
   const {
@@ -60,8 +61,9 @@ export const ActiveTimerModal: React.FC = () => {
   const strokeDashoffset = circumference - (progressPct / 100) * circumference;
 
   return (
-    <div className="fixed inset-0 z-50 bg-stone-950/90 dark:bg-stone-950/95 backdrop-blur-xl flex flex-col items-center justify-between p-6 md:p-10 text-stone-100 animate-in fade-in duration-300">
-      {/* Top Bar: Distraction-free controls */}
+    <ModalPortal isOpen={!!activeTimer?.isDistractionFree}>
+      <div className="fixed inset-0 z-[100] bg-stone-950/90 dark:bg-stone-950/95 backdrop-blur-xl flex flex-col items-center justify-between p-6 md:p-10 text-stone-100 animate-in fade-in duration-300">
+        {/* Top Bar: Distraction-free controls */}
       <div className="w-full max-w-4xl flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
           <span
@@ -235,5 +237,6 @@ export const ActiveTimerModal: React.FC = () => {
         <span>Sessions are autosaved locally</span>
       </div>
     </div>
+    </ModalPortal>
   );
 };

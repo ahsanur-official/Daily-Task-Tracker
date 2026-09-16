@@ -6,7 +6,12 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function usePWAInstall() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(() => {
+    if (typeof window !== 'undefined' && (window as unknown as { __pwa_deferred_prompt?: BeforeInstallPromptEvent }).__pwa_deferred_prompt) {
+      return (window as unknown as { __pwa_deferred_prompt: BeforeInstallPromptEvent }).__pwa_deferred_prompt;
+    }
+    return null;
+  });
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [hasPromptTriggered, setHasPromptTriggered] = useState(false);
@@ -27,11 +32,14 @@ export function usePWAInstall() {
     const handleBeforeInstallPrompt = (e: Event) => {
       // Prevent browser default mini-infobar
       e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+      const promptEvent = e as BeforeInstallPromptEvent;
+      (window as unknown as { __pwa_deferred_prompt: BeforeInstallPromptEvent }).__pwa_deferred_prompt = promptEvent;
+      setDeferredPrompt(promptEvent);
     };
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
+      (window as unknown as { __pwa_deferred_prompt?: BeforeInstallPromptEvent | null }).__pwa_deferred_prompt = null;
       setDeferredPrompt(null);
     };
 
@@ -45,15 +53,20 @@ export function usePWAInstall() {
   }, []);
 
   const install = async () => {
-    if (!deferredPrompt) {
+    const promptToUse =
+      deferredPrompt ||
+      (typeof window !== 'undefined' ? (window as unknown as { __pwa_deferred_prompt?: BeforeInstallPromptEvent }).__pwa_deferred_prompt : null);
+
+    if (!promptToUse) {
       return false;
     }
     setHasPromptTriggered(true);
     try {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
+      await promptToUse.prompt();
+      const { outcome } = await promptToUse.userChoice;
       if (outcome === 'accepted') {
         setIsInstalled(true);
+        (window as unknown as { __pwa_deferred_prompt?: BeforeInstallPromptEvent | null }).__pwa_deferred_prompt = null;
         setDeferredPrompt(null);
         return true;
       }

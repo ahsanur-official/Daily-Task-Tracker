@@ -12,8 +12,9 @@ export interface AppNotificationOptions {
   icon?: string;
   badge?: string;
   tag?: string;
-  type?: 'timer_complete' | 'deadline_reached' | 'system';
+  type?: 'timer_complete' | 'deadline_reached' | 'goal_reminder' | 'system';
   taskId?: string;
+  goalId?: string;
   onClick?: () => void;
   requireInteraction?: boolean;
 }
@@ -86,8 +87,8 @@ export function triggerBrowserNotification(options: AppNotificationOptions): boo
   try {
     const nativeNotification = new Notification(options.title, {
       body: options.body,
-      icon: options.icon || '/favicon.ico',
-      badge: options.badge || '/favicon.ico',
+      icon: options.icon || '/logo.svg',
+      badge: options.badge || '/logo.svg',
       tag: options.tag || `notif-${options.type || 'general'}-${Date.now()}`,
       requireInteraction: options.requireInteraction ?? true,
       silent: false,
@@ -113,6 +114,32 @@ export function triggerBrowserNotification(options: AppNotificationOptions): boo
 }
 
 /**
+ * Triggers a daily goal reminder notification using the Notifications API.
+ */
+export function notifyGoalReminder(
+  goalTitle: string,
+  reminderTime: string,
+  goalId: string,
+  pendingTaskCount?: number
+): boolean {
+  const detailText =
+    pendingTaskCount !== undefined && pendingTaskCount > 0
+      ? `You have ${pendingTaskCount} pending task${pendingTaskCount > 1 ? 's' : ''} to complete today.`
+      : `Time for your daily tasks to keep your streak intact!`;
+
+  return triggerBrowserNotification({
+    title: `⏰ Daily Goal Reminder: ${goalTitle}`,
+    body: `It's ${reminderTime}! ${detailText}`,
+    icon: '/logo.svg',
+    badge: '/logo.svg',
+    tag: `goal-reminder-${goalId}-${new Date().toISOString().split('T')[0]}`,
+    type: 'goal_reminder',
+    goalId,
+    requireInteraction: true,
+  });
+}
+
+/**
  * Triggers a notification when a timer focus session ends / target is achieved.
  */
 export function notifyTimerSessionComplete(taskTitle: string, durationMinutes: number): boolean {
@@ -120,6 +147,8 @@ export function notifyTimerSessionComplete(taskTitle: string, durationMinutes: n
   return triggerBrowserNotification({
     title: '🎯 Focus Session Complete!',
     body: `Awesome work! You completed your ${durationLabel}target for "${taskTitle}". Your streak progress has been updated.`,
+    icon: '/logo.svg',
+    badge: '/logo.svg',
     tag: `timer-complete-${taskTitle}-${Date.now()}`,
     type: 'timer_complete',
     requireInteraction: true,
@@ -133,6 +162,8 @@ export function notifyTaskDeadlineReached(taskTitle: string, deadlineTime: strin
   return triggerBrowserNotification({
     title: '⏰ Task Deadline Reached!',
     body: `"${taskTitle}" has reached its deadline (${deadlineTime}). Hop in to log your focus session and keep your streak!`,
+    icon: '/logo.svg',
+    badge: '/logo.svg',
     tag: `task-deadline-${taskId || taskTitle}-${deadlineTime}`,
     type: 'deadline_reached',
     taskId,
@@ -146,7 +177,9 @@ export function notifyTaskDeadlineReached(taskTitle: string, deadlineTime: strin
 export function sendTestNotification(): boolean {
   return triggerBrowserNotification({
     title: '🔔 Notifications Active!',
-    body: 'Browser notifications are enabled. You will be alerted when focus timers finish and tasks reach their deadlines.',
+    body: 'Browser notifications are enabled. You will be alerted for focus timers, deadlines, and daily goal reminders.',
+    icon: '/logo.svg',
+    badge: '/logo.svg',
     tag: 'test-notification',
     type: 'system',
     requireInteraction: false,

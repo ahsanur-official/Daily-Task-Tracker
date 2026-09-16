@@ -3,21 +3,23 @@ import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { Download, Smartphone, CheckCircle, X, Share, PlusSquare, ArrowUpRight } from 'lucide-react';
 
 interface PWAInstallButtonProps {
-  variant?: 'header' | 'sidebar' | 'banner' | 'settings';
+  variant?: 'header' | 'sidebar' | 'banner' | 'settings' | 'more-menu' | 'menu-item';
   className?: string;
   collapsed?: boolean;
+  onCloseMenu?: () => void;
 }
 
 export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   variant = 'header',
   className = '',
   collapsed = false,
+  onCloseMenu,
 }) => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showGuideModal, setShowGuideModal] = useState(false);
 
   // If already installed as PWA in standalone window, don't show prompt in header
-  if (isInstalled && variant !== 'settings') {
+  if (isInstalled && variant !== 'settings' && variant !== 'more-menu' && variant !== 'menu-item') {
     return null;
   }
 
@@ -31,6 +33,9 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   }
 
   const handleClick = async () => {
+    if (onCloseMenu) {
+      onCloseMenu();
+    }
     if (isInstallable) {
       const accepted = await install();
       if (!accepted) {
@@ -54,6 +59,76 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
           <Download className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Install App</span>
           <span className="sm:hidden">Install</span>
+        </button>
+      )}
+
+      {variant === 'more-menu' && (
+        isInstalled ? (
+          <div className={`w-full flex items-center justify-between p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 ${className}`}>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300 truncate">
+                  App Installed
+                </div>
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 truncate">
+                  Running in standalone mode
+                </div>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 uppercase">
+              Active
+            </span>
+          </div>
+        ) : (
+          <div className={`w-full p-3 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/30 flex items-center justify-between gap-3 ${className}`}>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-bold shrink-0 shadow-xs">
+                <Download className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">
+                    Install App
+                  </span>
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-amber-500 text-stone-950 uppercase leading-none">
+                    PWA
+                  </span>
+                </div>
+                <p className="text-[10px] text-stone-500 dark:text-stone-400 truncate">
+                  Offline use & quick launch
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleClick}
+              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer active:scale-95 flex items-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Install</span>
+            </button>
+          </div>
+        )
+      )}
+
+      {variant === 'menu-item' && (
+        <button
+          type="button"
+          onClick={handleClick}
+          className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-colors text-left cursor-pointer group ${className}`}
+        >
+          <div className="flex items-center gap-2.5">
+            <Download className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
+            <span>{isInstalled ? 'App Installed (PWA)' : 'Install Application'}</span>
+          </div>
+          {!isInstalled && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-400">
+              Install
+            </span>
+          )}
         </button>
       )}
 
@@ -131,7 +206,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-stone-900 p-6 shadow-2xl border border-stone-200 dark:border-stone-800 space-y-5">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <img src="/pwa-192x192.png" alt="App Icon" className="w-10 h-10 rounded-xl shadow-xs" />
+                <img src="/logo.svg" alt="Daily Task Tracker App Icon" className="w-10 h-10 rounded-xl shadow-xs object-contain" />
                 <div>
                   <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
                     Install Daily Task Tracker

@@ -28,6 +28,7 @@ import { calculateDayProgress, calculateStreaks, evaluateGoalProgress } from '..
 import {
   notifyTimerSessionComplete,
   notifyTaskDeadlineReached,
+  notifyGoalReminder,
   requestNotificationPermission,
   getNotificationPermission,
   sendTestNotification,
@@ -188,6 +189,7 @@ interface AppContextType {
   notificationPermission: NotificationPermissionStatus;
   requestNotificationAccess: () => Promise<NotificationPermissionStatus>;
   sendTestNotificationAlert: () => boolean;
+  triggerGoalReminderAlert: (goal: Goal) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -893,6 +895,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     user?.deadlineNotificationsEnabled,
     user?.preferredWorkEndTime,
   ]);
+
+  // Periodic Goal Notification Reminder Monitor (Checks every 20s for active goals with daily reminders)
+  const notifiedGoalRemindersRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const checkGoalReminders = () => {
+      if (user?.notificationsEnabled === false) return;
+
+      const now = new Date();
+      const currentHours = now.getHours().toString().padStart(2, '0');
+      const currentMinutes = now.getMinutes().toString().padStart(2, '0');
+      const currentTimeStr = `${currentHours}:${currentMinutes}`;
+      const [curH, curM] = currentTimeStr.split(':').map(Number);
+      const curTotalMin = curH * 60 + curM;
+
+      const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const currentDayName = daysOfWeek[now.getDay()];
+
+      goals.forEach((goal) => {
+        if (goal.status !== 'active') return;
+        if (!goal.reminderEnabled) return;
+        if (!goal.reminderTime || !goal.reminderTime.includes(':')) return;
+
+        // Verify goal timeline
+        if (goal.startDate && todayDate < goal.startDate) return;
+        if (goal.endDate && todayDate > goal.endDate) return;
+
+        // Verify active day of week if configured
+        if (goal.reminderDays && goal.reminderDays.length > 0) {
+          if (!goal.reminderDays.includes(currentDayName)) return;
+        }
+
+        const [remH, remM] = goal.reminderTime.split(':').map(Number);
+        const remTotalMin = remH * 60 + remM;
+
+        // Active trigger window: within 30 minutes of configured reminder time
+        if (curTotalMin >= remTotalMin && curTotalMin <= remTotalMin + 30) {
+          const notificationKey = `goal_rem_${goal.id}_${todayDate}_${goal.reminderTime}`;
+          if (!notifiedGoalRemindersRef.current.has(notificationKey)) {
+            notifiedGoalRemindersRef.current.add(notificationKey);
+
+            const goalTasks = tasks.filter((t) => t.goalId === goal.id);
+            const todayGoalSessions = sessions.filter((s) => s.goalId === goal.id && s.date === todayDate);
+            const pendingCount = goalTasks.filter((task) => {
+              const taskSessions = todayGoalSessions.filter((s) => s.taskId === task.id);
+              const totalSec = taskSessions.reduce((acc, s) => acc + s.durationSeconds, 0);
+              return totalSec < task.requiredDurationMinutes * 60;
+            }).length;
+
+            notifyGoalReminder(goal.title, goal.reminderTime, goal.id, pendingCount);
+          }
+        }
+      });
+    };
+
+    checkGoalReminders();
+    const interval = setInterval(checkGoalReminders, 20000);
+    return () => clearInterval(interval);
+  }, [goals, tasks, sessions, todayDate, user?.notificationsEnabled]);
+
+  const triggerGoalReminderAlert = useCallback(
+    (goal: Goal): boolean => {
+      const goalTasks = tasks.filter((t) => t.goalId === goal.id);
+      const todayGoalSessions = sessions.filter((s) => s.goalId === goal.id && s.date === todayDate);
+      const pendingCount = goalTasks.filter((task) => {
+        const taskSessions = todayGoalSessions.filter((s) => s.taskId === task.id);
+        const totalSec = taskSessions.reduce((acc, s) => acc + s.durationSeconds, 0);
+        return totalSec < task.requiredDurationMinutes * 60;
+      }).length;
+
+      const timeStr = goal.reminderTime || '09:00';
+      return notifyGoalReminder(goal.title, timeStr, goal.id, pendingCount);
+    },
+    [tasks, sessions, todayDate]
+  );
 
   // Helper to compute seconds already recorded today for a task
   const getTaskCurrentSecondsToday = useCallback(
@@ -2216,6 +2293,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notificationPermission,
         requestNotificationAccess,
         sendTestNotificationAlert,
+        triggerGoalReminderAlert,
       }}
     >
       {children}

@@ -17,6 +17,7 @@ import {
   Sun,
   Moon,
 } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface MobileNavProps {
   onOpenCreateGoal?: () => void;
@@ -180,6 +181,14 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
                 <span>Create New Goal</span>
               </button>
             )}
+
+            {/* App Installation Option inside More Function */}
+            <div className="pt-0.5">
+              <PWAInstallButton
+                variant="more-menu"
+                onCloseMenu={() => setIsMoreMenuOpen(false)}
+              />
+            </div>
 
             {/* Secondary Views Navigation */}
             <div className="space-y-1">
