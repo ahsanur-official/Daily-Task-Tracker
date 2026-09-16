@@ -249,16 +249,29 @@ export const TaskCalendarView: React.FC<TaskCalendarViewProps> = ({
       {/* 1. Quick Task Switcher Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             {goal && (
               <span
                 className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: goal.themeColor }}
+                style={{ backgroundColor: goal.themeColor || goal.color }}
               />
             )}
             <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
               {goal?.title || 'Task Continuity'}
             </span>
+            {goal?.colorLabel && (
+              <span
+                className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
+                style={{
+                  backgroundColor: `${goal.color}18`,
+                  borderColor: `${goal.color}40`,
+                  color: goal.color,
+                }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: goal.color }} />
+                <span>{goal.colorLabel}</span>
+              </span>
+            )}
             <span className="text-xs text-stone-300 dark:text-stone-600">•</span>
             <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
               {task.requiredDurationMinutes} mins/day

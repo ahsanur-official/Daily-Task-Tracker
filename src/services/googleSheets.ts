@@ -391,7 +391,12 @@ class GoogleSheetsService {
     if (row[5] !== undefined) pulledProfile.companyOrSchool = String(row[5]).trim();
     if (row[6] !== undefined) pulledProfile.location = String(row[6]).trim();
     if (row[7] !== undefined) pulledProfile.bio = String(row[7]).trim();
-    if (row[8] && String(row[8]).trim()) pulledProfile.accountTier = String(row[8]).trim();
+    if (row[8] && String(row[8]).trim()) {
+      const tierVal = String(row[8]).trim();
+      if (tierVal === 'Standard Member' || tierVal === 'Pro Practitioner' || tierVal === 'Master Disciplinarian') {
+        pulledProfile.accountTier = tierVal;
+      }
+    }
     if (row[9] && !isNaN(Number(row[9]))) pulledProfile.preferredDailyWorkingHours = Number(row[9]);
     if (row[10] && String(row[10]).trim()) pulledProfile.preferredWorkStartTime = String(row[10]).trim();
     if (row[11] && String(row[11]).trim()) pulledProfile.preferredWorkEndTime = String(row[11]).trim();

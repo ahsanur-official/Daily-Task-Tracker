@@ -42,14 +42,26 @@ export const FloatingTimerBar: React.FC = () => {
       <div className="p-3.5 rounded-2xl bg-stone-900/95 dark:bg-stone-900/95 backdrop-blur-xl border border-stone-800 text-stone-100 shadow-2xl flex items-center justify-between gap-3">
         {/* Left: Info & Progress */}
         <div className="flex-1 min-w-0 pr-1">
-          <div className="flex items-center gap-2 mb-0.5">
+          <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
             <span
               className="w-2 h-2 rounded-full shrink-0"
               style={{ backgroundColor: currentGoal?.color || '#f59e0b' }}
             />
-            <span className="text-[11px] font-medium text-stone-400 truncate block">
+            <span className="text-[11px] font-medium text-stone-400 truncate">
               {currentGoal?.title}
             </span>
+            {currentGoal?.colorLabel && (
+              <span
+                className="px-1.5 py-0.5 rounded text-[9px] font-bold border shrink-0 inline-flex items-center gap-1"
+                style={{
+                  backgroundColor: `${currentGoal.color}25`,
+                  borderColor: `${currentGoal.color}55`,
+                  color: currentGoal.color,
+                }}
+              >
+                <span>{currentGoal.colorLabel}</span>
+              </span>
+            )}
           </div>
           <div className="text-sm font-semibold text-white truncate">
             {currentTask?.title}

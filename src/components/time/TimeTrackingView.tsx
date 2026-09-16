@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Clock, Calendar, TrendingUp, Download, Play, CheckCircle2 } from 'lucide-react';
+import { Clock, Calendar, TrendingUp, Download, Play, CheckCircle2, Plus, Tag } from 'lucide-react';
 import { formatSecondsToHuman, formatSecondsToDigital, addDaysToDateString } from '../../utils/time';
 import { exportSessionsAsCSV } from '../../utils/storage';
+import { ManualTimeLogModal } from './ManualTimeLogModal';
 
 export const TimeTrackingView: React.FC = () => {
   const { analytics, sessions, tasks, goals, todayDate } = useApp();
   const [chartViewMode, setChartViewMode] = useState<'day' | 'week' | 'month'>('day');
+  const [isManualLogOpen, setIsManualLogOpen] = useState(false);
 
   // Compute chart bars based on view mode:
   // Day: Last 7 days individually
@@ -79,13 +81,27 @@ export const TimeTrackingView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleExportCSV}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 font-semibold text-xs transition-colors shadow-xs"
-        >
-          <Download className="w-4 h-4" />
-          <span>Export CSV</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            id="open-manual-log-btn"
+            type="button"
+            onClick={() => setIsManualLogOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Log Offline Time</span>
+          </button>
+
+          <button
+            id="export-csv-btn"
+            type="button"
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 font-semibold text-xs transition-colors shadow-xs cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* 4 Core Summary Cards (Prompt Section 14 Specification) */}
@@ -203,9 +219,23 @@ export const TimeTrackingView: React.FC = () => {
         </div>
 
         {sessions.length === 0 ? (
-          <p className="text-xs text-stone-400 py-6 text-center italic">
-            No sessions logged yet. Start a task timer on the dashboard to record time.
-          </p>
+          <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <Clock className="w-6 h-6" />
+            </div>
+            <p className="text-xs text-stone-500 dark:text-stone-400 max-w-sm">
+              No sessions logged yet. Start a task timer on the dashboard or log offline work right now.
+            </p>
+            <button
+              id="empty-log-offline-btn"
+              type="button"
+              onClick={() => setIsManualLogOpen(true)}
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Log First Session</span>
+            </button>
+          </div>
         ) : (
           <div className="divide-y divide-stone-100 dark:divide-stone-800/80">
             {sessions
@@ -225,13 +255,26 @@ export const TimeTrackingView: React.FC = () => {
                         <Clock className="w-4 h-4 text-stone-600 dark:text-stone-400" />
                       </div>
                       <div className="min-w-0">
-                        <div className="font-bold text-stone-900 dark:text-stone-100 truncate">
-                          {task?.title || 'Focused Task'}
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-stone-900 dark:text-stone-100 truncate">
+                            {task?.title || 'Focused Task'}
+                          </span>
+                          {sess.isOffline && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 shrink-0">
+                              Offline
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-stone-400 flex items-center gap-1.5">
                           <span>{goal?.title || 'Goal'}</span>
                           <span>•</span>
                           <span>{sess.date}</span>
+                          {sess.notes && (
+                            <>
+                              <span>•</span>
+                              <span className="italic truncate max-w-[180px]">{sess.notes}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -253,6 +296,11 @@ export const TimeTrackingView: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ManualTimeLogModal
+        isOpen={isManualLogOpen}
+        onClose={() => setIsManualLogOpen(false)}
+      />
     </div>
   );
 };

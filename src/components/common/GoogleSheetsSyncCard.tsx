@@ -11,6 +11,7 @@ import {
   Target,
   Clock,
   HardDriveDownload,
+  ArrowDownToLine,
 } from 'lucide-react';
 
 export const GoogleSheetsSyncCard: React.FC = () => {
@@ -18,11 +19,13 @@ export const GoogleSheetsSyncCard: React.FC = () => {
     sheetsStatus,
     connectAndSyncGoogleSheets,
     disconnectGoogleSheets,
+    pullUserProfileFromGoogleSheets,
     isOnline,
     user,
   } = useApp();
 
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [isPulling, setIsPulling] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
   const handleSync = async () => {
@@ -34,6 +37,21 @@ export const GoogleSheetsSyncCard: React.FC = () => {
     } catch (err: any) {
       setFeedback(err?.message || 'Failed to sync with Google Sheets');
       setTimeout(() => setFeedback(null), 7000);
+    }
+  };
+
+  const handlePullProfile = async () => {
+    setFeedback(null);
+    setIsPulling(true);
+    try {
+      const res = await pullUserProfileFromGoogleSheets();
+      setFeedback(res.message);
+      setTimeout(() => setFeedback(null), 5000);
+    } catch (err: any) {
+      setFeedback(err?.message || 'Failed to fetch details from Google Sheets');
+      setTimeout(() => setFeedback(null), 7000);
+    } finally {
+      setIsPulling(false);
     }
   };
 
@@ -80,6 +98,19 @@ export const GoogleSheetsSyncCard: React.FC = () => {
               <ExternalLink className="w-3.5 h-3.5" />
               <span>Open in Sheets</span>
             </a>
+          )}
+
+          {sheetsStatus.connected && (
+            <button
+              type="button"
+              onClick={handlePullProfile}
+              disabled={isPulling || sheetsStatus.isSyncing}
+              title="Import profile details updated in your Google Sheet"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 transition-colors border border-stone-200 dark:border-stone-700 disabled:opacity-50"
+            >
+              <ArrowDownToLine className={`w-3.5 h-3.5 ${isPulling ? 'animate-bounce' : ''}`} />
+              <span>{isPulling ? 'Pulling...' : 'Pull Profile'}</span>
+            </button>
           )}
 
           <button

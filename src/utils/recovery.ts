@@ -91,6 +91,7 @@ export function calculateDayProgress(
         taskTitle: task.title,
         goalTitle: goal.title,
         goalColor: goal.color,
+        goalColorLabel: goal.colorLabel,
         normalRequiredSeconds: normalReqSeconds,
         recoverySeconds: netRecoveryRequired,
         totalRequiredSeconds: totalReq,

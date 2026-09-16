@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, Plus, Trash2, Calendar, Target, Sparkles } from 'lucide-react';
+import { X, Plus, Trash2, Calendar, Target, Sparkles, Tag, Palette } from 'lucide-react';
 import { GoalCategory, GoalDurationOption } from '../../types';
 import { addDaysToDateString, formatSecondsToHuman } from '../../utils/time';
 
@@ -31,6 +31,17 @@ const COLORS = [
   '#14b8a6', // Teal
 ];
 
+const PRESET_COLOR_LABELS = [
+  { label: 'Work', color: '#0284c7' },
+  { label: 'Personal', color: '#8b5cf6' },
+  { label: 'Health', color: '#10b981' },
+  { label: 'Study', color: '#6366f1' },
+  { label: 'Fitness', color: '#ef4444' },
+  { label: 'Creative', color: '#ec4899' },
+  { label: 'Finance', color: '#14b8a6' },
+  { label: 'Deep Work', color: '#f59e0b' },
+];
+
 export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClose }) => {
   const { createGoal, todayDate } = useApp();
 
@@ -38,6 +49,7 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<GoalCategory>('Coding & Tech');
   const [color, setColor] = useState(COLORS[0]);
+  const [colorLabel, setColorLabel] = useState('Work');
   const [durationOption, setDurationOption] = useState<GoalDurationOption>('30_days');
   const [customDays, setCustomDays] = useState(21);
   const [startDate, setStartDate] = useState(todayDate);
@@ -126,6 +138,7 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
         description: description.trim(),
         category,
         color,
+        colorLabel: colorLabel.trim() || undefined,
         iconName: 'Target',
         durationOption,
         durationDays,
@@ -206,41 +219,123 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
               />
             </div>
 
-            {/* Category & Color */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
-                  Category
-                </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as GoalCategory)}
-                  className="w-full text-sm px-3 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
-                >
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
+            {/* Category, Color & Custom Color Label */}
+            <div className="space-y-4 p-4 rounded-2xl bg-stone-50/80 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
+                    Category
+                  </label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value as GoalCategory)}
+                    className="w-full text-sm px-3 py-2.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30"
+                  >
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5 flex items-center justify-between">
+                    <span>Accent Color</span>
+                    <span className="text-[10px] font-mono text-stone-400">{color}</span>
+                  </label>
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    {COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setColor(c)}
+                        className={`w-6 h-6 rounded-full transition-transform cursor-pointer ${
+                          color === c ? 'scale-125 ring-2 ring-offset-2 ring-stone-900 dark:ring-stone-100' : 'hover:scale-110'
+                        }`}
+                        style={{ backgroundColor: c }}
+                        title={c}
+                      />
+                    ))}
+                    {/* Custom Hex Color Picker */}
+                    <label
+                      className="relative w-6 h-6 rounded-full border border-stone-300 dark:border-stone-600 flex items-center justify-center cursor-pointer overflow-hidden hover:scale-110 transition-transform"
+                      title="Custom color picker"
+                    >
+                      <Palette className="w-3.5 h-3.5 text-stone-600 dark:text-stone-300" />
+                      <input
+                        type="color"
+                        value={color}
+                        onChange={(e) => setColor(e.target.value)}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      />
+                    </label>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
-                  Accent Color
-                </label>
-                <div className="flex items-center gap-2 pt-1">
-                  {COLORS.map((c) => (
+              {/* Custom Color Label (e.g., Work, Personal, Health) */}
+              <div className="pt-3 border-t border-stone-200/60 dark:border-stone-700/60 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Visual Color Label</span>
+                    <span className="text-[11px] font-normal text-stone-400">(Categorize tasks across app)</span>
+                  </label>
+
+                  {/* Live Preview Badge */}
+                  {colorLabel.trim() && (
+                    <span
+                      className="px-2.5 py-0.5 rounded-md text-[11px] font-bold border flex items-center gap-1.5 animate-in fade-in"
+                      style={{
+                        backgroundColor: `${color}18`,
+                        borderColor: `${color}40`,
+                        color: color,
+                      }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                      <span>{colorLabel.trim()}</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Preset Chips */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] text-stone-400 mr-1">Presets:</span>
+                  {PRESET_COLOR_LABELS.map((preset) => (
                     <button
-                      key={c}
+                      key={preset.label}
                       type="button"
-                      onClick={() => setColor(c)}
-                      className={`w-6 h-6 rounded-full transition-transform ${
-                        color === c ? 'scale-125 ring-2 ring-offset-2 ring-stone-900 dark:ring-stone-100' : 'hover:scale-110'
+                      onClick={() => {
+                        setColorLabel(preset.label);
+                        setColor(preset.color);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                        colorLabel.toLowerCase() === preset.label.toLowerCase()
+                          ? 'border-transparent text-white font-bold shadow-2xs'
+                          : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-600'
                       }`}
-                      style={{ backgroundColor: c }}
-                    />
+                      style={
+                        colorLabel.toLowerCase() === preset.label.toLowerCase()
+                          ? { backgroundColor: preset.color }
+                          : undefined
+                      }
+                    >
+                      {preset.label}
+                    </button>
                   ))}
+                </div>
+
+                {/* Custom Label Input */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={colorLabel}
+                    onChange={(e) => setColorLabel(e.target.value)}
+                    placeholder="Enter custom label (e.g. Work, Personal, Health, Study...)"
+                    maxLength={30}
+                    className="w-full text-xs px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 font-medium"
+                  />
                 </div>
               </div>
             </div>

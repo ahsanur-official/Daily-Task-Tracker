@@ -65,37 +65,14 @@ import {
   testFirestoreConnection,
   FirebaseUser,
 } from '../firebase';
-
-// Audio chime generator using Web Audio API for timer completion
-function playCompletionChime() {
-  try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const now = ctx.currentTime;
-    
-    // Smooth pleasant chord (C5 - E5 - G5 - C6)
-    const notes = [523.25, 659.25, 783.99, 1046.50];
-    notes.forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-      
-      gain.gain.setValueAtTime(0, now + idx * 0.08);
-      gain.gain.linearRampToValueAtTime(0.15, now + idx * 0.08 + 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.8);
-      
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc.start(now + idx * 0.08);
-      osc.stop(now + idx * 0.08 + 0.85);
-    });
-  } catch {
-    // AudioContext blocked or not supported
-  }
-}
+import {
+  playTimerStartSound,
+  playTimerPauseSound,
+  playTimerResumeSound,
+  playCompletionChime,
+  playSuccessChime,
+} from '../utils/audio';
+import { triggerStreakCelebration } from '../components/common/StreakCelebration';
 
 interface AppContextType {
   user: UserProfile | null;
@@ -129,6 +106,7 @@ interface AppContextType {
   openAuthModal: (tab?: 'login' | 'register' | 'switch') => void;
   authModalTab: 'login' | 'register' | 'switch';
   setAuthModalTab: (tab: 'login' | 'register' | 'switch') => void;
+  startGuestSession: () => void;
 
   // Goals
   goals: Goal[];
@@ -155,6 +133,14 @@ interface AppContextType {
   pauseTimer: () => void;
   resumeTimer: () => void;
   stopAndSaveTimer: () => void;
+  logManualSession: (
+    taskId: string,
+    durationMinutes: number,
+    date?: string,
+    notes?: string
+  ) => Promise<TimeSession>;
+  completeTaskToday: (taskId: string) => Promise<boolean>;
+  triggerStreakCelebrationNotification: (streak?: number, taskTitle?: string) => void;
   cancelTimer: () => void;
   setDistractionFree: (df: boolean) => void;
   getTaskCurrentSecondsToday: (taskId: string) => number;
@@ -280,6 +266,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [syncQueue, setSyncQueue] = useState<SyncQueueItem[]>(() => {
     return loadFromLocalStorage<SyncQueueItem[]>(STORAGE_KEYS.SYNC_QUEUE, []);
+  });
+
+  // Google Sheets integration state
+  const [sheetsStatus, setSheetsStatus] = useState<GoogleSheetsSyncStatus>(() => {
+    const id = googleSheetsService.getStoredSpreadsheetId();
+    const lastSync = googleSheetsService.getStoredLastSync();
+    const hasToken = googleSheetsService.hasToken();
+    return {
+      connected: Boolean(id || hasToken),
+      spreadsheetId: id,
+      spreadsheetUrl: id ? `https://docs.google.com/spreadsheets/d/${id}/edit` : null,
+      lastSynced: lastSync,
+      isSyncing: false,
+      error: null,
+    };
   });
 
   // Local storage persistence effects for offline continuity
@@ -935,7 +936,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         syncStatus: isCurrentlyOnline ? 'synced' : 'pending',
       };
 
-      setSessions((prev) => [...prev, newSession]);
+      setSessions((prev) => {
+        const nextSessions = [...prev, newSession];
+        const prevStreaks = calculateStreaks(goals, tasks, prev, todayDate);
+        if (!prevStreaks.isStreakMaintainedToday) {
+          const nextStreaks = calculateStreaks(goals, tasks, nextSessions, todayDate);
+          if (nextStreaks.isStreakMaintainedToday) {
+            const taskObj = tasks.find((t) => t.id === activeTimer.taskId);
+            triggerStreakCelebration(nextStreaks.currentStreak, taskObj?.title);
+          }
+        }
+        return nextSessions;
+      });
 
       if (isCurrentlyOnline && auth.currentUser) {
         setDoc(doc(db, 'sessions', sessionId), newSession).catch((err) => {
@@ -948,7 +960,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     setActiveTimer(null);
-  }, [activeTimer, user?.id, todayDate, enqueueSyncItem]);
+  }, [activeTimer, user?.id, todayDate, enqueueSyncItem, goals, tasks]);
 
   const startTimer = useCallback(
     (taskId: string, isDistractionFree = false) => {
@@ -981,8 +993,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       setActiveTimer(newTimer);
+      if (user?.soundEnabled !== false) {
+        playTimerStartSound();
+      }
     },
-    [tasks, activeTimer, sessions, todayDate, stopAndSaveTimer]
+    [tasks, activeTimer, sessions, todayDate, stopAndSaveTimer, user?.soundEnabled]
   );
 
   const pauseTimer = useCallback(() => {
@@ -1019,6 +1034,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    if (user?.soundEnabled !== false) {
+      playTimerPauseSound();
+    }
+
     setActiveTimer((prev) =>
       prev
         ? {
@@ -1028,10 +1047,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         : null
     );
-  }, [activeTimer, user?.id, todayDate, enqueueSyncItem]);
+  }, [activeTimer, user?.id, user?.soundEnabled, todayDate, enqueueSyncItem]);
 
   const resumeTimer = useCallback(() => {
     if (!activeTimer || activeTimer.isRunning) return;
+    if (user?.soundEnabled !== false) {
+      playTimerResumeSound();
+    }
     setActiveTimer((prev) =>
       prev
         ? {
@@ -1041,7 +1063,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         : null
     );
-  }, [activeTimer]);
+  }, [activeTimer, user?.soundEnabled]);
+
+  const logManualSession = useCallback(
+    async (
+      taskId: string,
+      durationMinutes: number,
+      sessionDate?: string,
+      notes?: string
+    ): Promise<TimeSession> => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) {
+        throw new Error('Task not found');
+      }
+
+      const currentUid = auth.currentUser?.uid || user?.id || 'guest_user';
+      const durationSeconds = Math.max(60, Math.round(durationMinutes * 60));
+      const targetDate = sessionDate || todayDate;
+      const sessionId = generateRandomId('sess');
+      const isCurrentlyOnline = navigator.onLine && Boolean(auth.currentUser);
+
+      const now = Date.now();
+      const newSession: TimeSession = {
+        id: sessionId,
+        taskId: task.id,
+        goalId: task.goalId,
+        userId: currentUid,
+        date: targetDate,
+        startTimestamp: now - durationSeconds * 1000,
+        endTimestamp: now,
+        durationSeconds,
+        notes: notes || 'Manual offline session',
+        isOffline: !isCurrentlyOnline,
+        syncStatus: isCurrentlyOnline ? 'synced' : 'pending',
+      };
+
+      setSessions((prev) => {
+        const nextSessions = [...prev, newSession];
+        if (targetDate === todayDate) {
+          const prevStreaks = calculateStreaks(goals, tasks, prev, todayDate);
+          if (!prevStreaks.isStreakMaintainedToday) {
+            const nextStreaks = calculateStreaks(goals, tasks, nextSessions, todayDate);
+            if (nextStreaks.isStreakMaintainedToday) {
+              triggerStreakCelebration(nextStreaks.currentStreak, task.title);
+            }
+          }
+        }
+        return nextSessions;
+      });
+
+      if (user?.soundEnabled !== false) {
+        playSuccessChime();
+      }
+
+      if (isCurrentlyOnline && auth.currentUser) {
+        setDoc(doc(db, 'sessions', sessionId), newSession).catch((err) => {
+          console.warn('Direct cloud write failed for manual session, queued for auto-sync:', err);
+          enqueueSyncItem('sessions', 'set', sessionId, newSession);
+        });
+      } else {
+        enqueueSyncItem('sessions', 'set', sessionId, newSession);
+      }
+
+      return newSession;
+    },
+    [tasks, user?.id, user?.soundEnabled, todayDate, enqueueSyncItem, goals]
+  );
 
   const cancelTimer = useCallback(() => {
     setActiveTimer(null);
@@ -1610,6 +1697,103 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   }, [openAuthModal]);
 
+  const startGuestSession = useCallback(() => {
+    const guestId = 'guest_' + Math.random().toString(36).substring(2, 9);
+    const guestProfile: UserProfile = {
+      id: guestId,
+      fullName: 'Guest Explorer',
+      username: 'guest_explorer',
+      email: 'guest@device.local',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      avatarStorageType: 'preset',
+      bio: 'Exploring Daily Task Tracker in local guest mode.',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York',
+      preferredDailyWorkingHours: 3,
+      preferredWorkStartTime: '09:00',
+      preferredWorkEndTime: '18:00',
+      theme: theme || 'light',
+      accentColor: '#f59e0b',
+      notificationsEnabled: true,
+      timerNotificationsEnabled: true,
+      deadlineNotificationsEnabled: true,
+      soundEnabled: true,
+      createdAt: todayDate,
+      accountTier: 'Standard Member',
+      isGuest: true,
+    };
+
+    setUser(guestProfile);
+    setIsAuthModalOpen(false);
+
+    // If no goals exist yet, seed a Starter Practice Routine
+    if (goals.length === 0) {
+      const starterGoalId = generateRandomId('goal');
+      const targetEnd = new Date();
+      targetEnd.setDate(targetEnd.getDate() + 7);
+      const endDateStr = targetEnd.toISOString().split('T')[0];
+
+      const starterGoal: Goal = {
+        id: starterGoalId,
+        userId: guestId,
+        title: 'Deep Work & Daily Mastery',
+        description: 'A starter routine to build focus discipline and continuous habit momentum.',
+        category: 'Learning & Language',
+        color: '#f59e0b',
+        colorLabel: 'Work',
+        iconName: 'Zap',
+        durationOption: '7_days',
+        durationDays: 7,
+        startDate: todayDate,
+        endDate: endDateStr,
+        status: 'active',
+        createdAt: todayDate,
+        motivationalQuote: 'Discipline is choosing between what you want now and what you want most.',
+      };
+
+      const starterTasks: Task[] = [
+        {
+          id: generateRandomId('task'),
+          goalId: starterGoalId,
+          userId: guestId,
+          title: 'Deep Work Sprint (No Notifications)',
+          description: 'Single-tasking block with all social tabs closed.',
+          requiredDurationMinutes: 45,
+          preferredTime: '10:00',
+          deadlineTime: '14:00',
+          frequency: 'daily',
+          createdAt: todayDate,
+        },
+        {
+          id: generateRandomId('task'),
+          goalId: starterGoalId,
+          userId: guestId,
+          title: 'Deliberate Reading & Concept Notes',
+          description: 'Read 15-20 pages of non-fiction or documentation.',
+          requiredDurationMinutes: 25,
+          preferredTime: '15:30',
+          deadlineTime: '19:00',
+          frequency: 'daily',
+          createdAt: todayDate,
+        },
+        {
+          id: generateRandomId('task'),
+          goalId: starterGoalId,
+          userId: guestId,
+          title: 'Daily Review & Next-Day Planning',
+          description: 'Review what went well, log offline work, and set top 3 priorities for tomorrow.',
+          requiredDurationMinutes: 10,
+          preferredTime: '20:00',
+          deadlineTime: '22:00',
+          frequency: 'daily',
+          createdAt: todayDate,
+        },
+      ];
+
+      setGoals([starterGoal]);
+      setTasks(starterTasks);
+    }
+  }, [goals.length, theme, todayDate]);
+
   const logout = useCallback(async () => {
     try {
       await firebaseSignOut(auth);
@@ -1625,6 +1809,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuthModalTab('login');
     setIsAuthModalOpen(false);
   }, []);
+
+  const todayProgress = useMemo(() => {
+    return calculateDayProgress(todayDate, goals, tasks, sessions, todayDate);
+  }, [todayDate, goals, tasks, sessions]);
+
+  const selectedDayProgress = useMemo(() => {
+    return calculateDayProgress(selectedDate, goals, tasks, sessions, todayDate);
+  }, [selectedDate, goals, tasks, sessions, todayDate]);
+
+  const streakInfo = useMemo(() => {
+    return calculateStreaks(goals, tasks, sessions, todayDate);
+  }, [goals, tasks, sessions, todayDate]);
+
+  const completeTaskToday = useCallback(
+    async (taskId: string): Promise<boolean> => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return false;
+
+      const tp = todayProgress.tasks.find((t) => t.taskId === taskId);
+      const remainingSeconds = tp && tp.remainingSeconds > 0
+        ? tp.remainingSeconds
+        : task.requiredDurationMinutes * 60;
+
+      const durationMinutes = Math.max(1, Math.ceil(remainingSeconds / 60));
+      await logManualSession(
+        taskId,
+        durationMinutes,
+        todayDate,
+        'Quick marked task as complete'
+      );
+      return true;
+    },
+    [tasks, todayProgress, logManualSession, todayDate]
+  );
+
+  const triggerStreakCelebrationNotification = useCallback(
+    (streak?: number, taskTitle?: string) => {
+      triggerStreakCelebration(streak ?? (streakInfo.currentStreak || 1), taskTitle);
+    },
+    [streakInfo.currentStreak]
+  );
 
   const updateProfile = useCallback(
     async (data: Partial<UserProfile>) => {
@@ -1751,19 +1976,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsAuthModalOpen(false);
   }, [openAuthModal]);
 
-  // Compute Day Progress & Streaks
-  const todayProgress = useMemo(() => {
-    return calculateDayProgress(todayDate, goals, tasks, sessions, todayDate);
-  }, [todayDate, goals, tasks, sessions]);
-
-  const selectedDayProgress = useMemo(() => {
-    return calculateDayProgress(selectedDate, goals, tasks, sessions, todayDate);
-  }, [selectedDate, goals, tasks, sessions, todayDate]);
-
-  const streakInfo = useMemo(() => {
-    return calculateStreaks(goals, tasks, sessions, todayDate);
-  }, [goals, tasks, sessions, todayDate]);
-
   // Analytics
   const analytics = useMemo<AnalyticsSummary>(() => {
     const todaySessions = sessions.filter((s) => s.date === todayDate);
@@ -1826,21 +2038,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [user]);
 
   const isAuthenticated = Boolean(firebaseUser && user);
-
-  // Google Sheets integration state
-  const [sheetsStatus, setSheetsStatus] = useState<GoogleSheetsSyncStatus>(() => {
-    const id = googleSheetsService.getStoredSpreadsheetId();
-    const lastSync = googleSheetsService.getStoredLastSync();
-    const hasToken = googleSheetsService.hasToken();
-    return {
-      connected: Boolean(id || hasToken),
-      spreadsheetId: id,
-      spreadsheetUrl: id ? `https://docs.google.com/spreadsheets/d/${id}/edit` : null,
-      lastSynced: lastSync,
-      isSyncing: false,
-      error: null,
-    };
-  });
 
   const connectAndSyncGoogleSheets = useCallback(async () => {
     const currentUid = auth.currentUser?.uid || user?.id;
@@ -1965,6 +2162,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         openAuthModal,
         authModalTab,
         setAuthModalTab,
+        startGuestSession,
         goals,
         createGoal,
         updateGoal,
@@ -1982,6 +2180,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         pauseTimer,
         resumeTimer,
         stopAndSaveTimer,
+        logManualSession,
+        completeTaskToday,
+        triggerStreakCelebrationNotification,
         cancelTimer,
         setDistractionFree,
         getTaskCurrentSecondsToday,

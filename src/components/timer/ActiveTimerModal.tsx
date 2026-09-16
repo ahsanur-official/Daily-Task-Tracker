@@ -63,7 +63,7 @@ export const ActiveTimerModal: React.FC = () => {
     <div className="fixed inset-0 z-50 bg-stone-950/90 dark:bg-stone-950/95 backdrop-blur-xl flex flex-col items-center justify-between p-6 md:p-10 text-stone-100 animate-in fade-in duration-300">
       {/* Top Bar: Distraction-free controls */}
       <div className="w-full max-w-4xl flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span
             className="w-3 h-3 rounded-full"
             style={{ backgroundColor: currentGoal?.color || '#f59e0b' }}
@@ -71,6 +71,18 @@ export const ActiveTimerModal: React.FC = () => {
           <span className="text-sm font-semibold uppercase tracking-wider text-stone-400">
             {currentGoal?.title || 'Active Goal'}
           </span>
+          {currentGoal?.colorLabel && (
+            <span
+              className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
+              style={{
+                backgroundColor: `${currentGoal.color}25`,
+                borderColor: `${currentGoal.color}55`,
+                color: currentGoal.color,
+              }}
+            >
+              <span>{currentGoal.colorLabel}</span>
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

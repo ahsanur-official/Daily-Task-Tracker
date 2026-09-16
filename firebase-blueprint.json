@@ -47,6 +47,7 @@
         "description": { "type": "string", "maxLength": 1000 },
         "category": { "type": "string", "maxLength": 50 },
         "color": { "type": "string", "maxLength": 20 },
+        "colorLabel": { "type": "string", "maxLength": 50 },
         "iconName": { "type": "string", "maxLength": 50 },
         "durationOption": { "type": "string", "enum": ["3_days", "7_days", "15_days", "30_days", "custom"] },
         "durationDays": { "type": "number" },

@@ -125,10 +125,23 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
               style={{ backgroundColor: goal.color }}
             />
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100 truncate">
                   {goal.title}
                 </h2>
+                {goal.colorLabel && (
+                  <span
+                    className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
+                    style={{
+                      backgroundColor: `${goal.color}18`,
+                      borderColor: `${goal.color}40`,
+                      color: goal.color,
+                    }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: goal.color }} />
+                    <span>{goal.colorLabel}</span>
+                  </span>
+                )}
                 <span
                   className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${
                     isCompleted

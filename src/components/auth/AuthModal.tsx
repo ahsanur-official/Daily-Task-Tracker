@@ -45,6 +45,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
     setIsAuthModalOpen,
     authModalTab,
     setAuthModalTab,
+    startGuestSession,
     isFirestoreConnected,
   } = useApp();
 
@@ -449,6 +450,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                 )}
               </button>
 
+              {/* Instant Guest Mode */}
+              <button
+                id="guest-mode-btn-login"
+                type="button"
+                onClick={() => startGuestSession()}
+                className="w-full mt-2.5 py-2.5 px-4 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-800 dark:text-amber-300 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+              >
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span>Continue as Guest (Explore Demo Routine)</span>
+              </button>
+
               <div className="flex items-center my-4">
                 <div className="flex-grow border-t border-stone-200 dark:border-stone-800"></div>
                 <span className="flex-shrink mx-4 text-stone-400 text-xs uppercase tracking-wider font-semibold">
@@ -630,6 +642,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
                       <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
                     </svg>
                     <span>Sign up fast with Google</span>
+                  </button>
+
+                  <button
+                    id="guest-mode-btn-signup"
+                    type="button"
+                    onClick={() => startGuestSession()}
+                    className="w-full mt-2 py-2 px-4 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-800 dark:text-amber-300 font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Skip for now: Explore Demo as Guest</span>
                   </button>
 
                   <div className="flex items-center my-3.5">

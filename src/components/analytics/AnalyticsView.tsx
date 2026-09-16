@@ -11,6 +11,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { formatSecondsToHuman } from '../../utils/time';
+import { WeeklyRecapCard } from './WeeklyRecapCard';
 
 export const AnalyticsView: React.FC = () => {
   const { analytics, streakInfo, goals, sessions } = useApp();
@@ -26,6 +27,9 @@ export const AnalyticsView: React.FC = () => {
           Measurable insights into your habits, focus consistency, and completion rates.
         </p>
       </div>
+
+      {/* Weekly Recap Card */}
+      <WeeklyRecapCard />
 
       {/* Grid of Key Metrics (Prompt Section 24) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

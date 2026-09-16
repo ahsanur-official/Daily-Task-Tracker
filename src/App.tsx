@@ -17,6 +17,7 @@ import { ActiveTimerModal } from './components/timer/ActiveTimerModal';
 import { FloatingTimerBar } from './components/timer/FloatingTimerBar';
 import { AuthModal } from './components/auth/AuthModal';
 import { NotificationToasts } from './components/notifications/NotificationToasts';
+import { StreakCelebrationOverlay } from './components/common/StreakCelebration';
 import { WifiOff, RefreshCw } from 'lucide-react';
 
 const MainContent: React.FC = () => {
@@ -115,6 +116,9 @@ const MainContent: React.FC = () => {
 
       {/* Floating In-App & System Notification Toasts */}
       <NotificationToasts />
+
+      {/* Streak Extension Celebration (Growing flame + Confetti) */}
+      <StreakCelebrationOverlay soundEnabled={user?.soundEnabled !== false} />
 
       {/* Distraction-Free Fullscreen / Focused Active Timer Modal */}
       <ActiveTimerModal />

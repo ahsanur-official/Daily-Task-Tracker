@@ -41,8 +41,9 @@ export interface UserProfile {
   deadlineNotificationsEnabled?: boolean;
   soundEnabled: boolean;
   createdAt: string;
-  accountTier?: 'Standard Member' | 'Pro Practitioner' | 'Master Disciplinarian';
+  accountTier?: 'Standard Member' | 'Pro Practitioner' | 'Master Disciplinarian' | 'Grandmaster Elite';
   lastLoginAt?: string;
+  isGuest?: boolean;
 }
 
 export interface RegisteredUserAccount {
@@ -71,6 +72,7 @@ export interface Goal {
   description?: string;
   category: GoalCategory;
   color: string;
+  colorLabel?: string; // e.g. "Work", "Personal", "Health"
   iconName: string;
   durationOption: GoalDurationOption;
   durationDays: number;
@@ -113,6 +115,7 @@ export interface DayTaskProgress {
   taskTitle: string;
   goalTitle: string;
   goalColor: string;
+  goalColorLabel?: string;
   normalRequiredSeconds: number;
   recoverySeconds: number;
   totalRequiredSeconds: number;

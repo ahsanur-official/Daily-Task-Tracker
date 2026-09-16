@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'motion/react';
 import { useApp } from '../../context/AppContext';
 import {
   Flame,
@@ -15,6 +16,12 @@ import {
   Sparkles,
   RotateCcw,
   BookOpen,
+  Sun,
+  Sunrise,
+  Sunset,
+  LayoutList,
+  SlidersHorizontal,
+  Tag,
 } from 'lucide-react';
 import {
   getTimeGreeting,
@@ -22,9 +29,10 @@ import {
   formatSecondsToHuman,
   formatSecondsToDigital,
 } from '../../utils/time';
-import { DailyQuote } from './DailyQuote';
+import { Motivation } from './Motivation';
 import { StreakHeatmap } from './StreakHeatmap';
 import { TaskCalendarModal } from '../calendar/TaskCalendarModal';
+import { ManualTimeLogModal } from '../time/ManualTimeLogModal';
 import { Task } from '../../types';
 
 interface DashboardViewProps {
@@ -48,10 +56,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
     sessions,
     setActiveView,
     updateTask,
+    completeTaskToday,
+    triggerStreakCelebrationNotification,
   } = useApp();
 
+  const [quickCompletingTaskId, setQuickCompletingTaskId] = useState<string | null>(null);
   const [activeTaskNotesId, setActiveTaskNotesId] = useState<string | null>(null);
   const [selectedTaskForCalendar, setSelectedTaskForCalendar] = useState<Task | null>(null);
+  const [selectedTaskForManualLog, setSelectedTaskForManualLog] = useState<string | null>(null);
+  const [isManualLogModalOpen, setIsManualLogModalOpen] = useState(false);
+  const [taskBucket, setTaskBucket] = useState<'all' | 'morning' | 'afternoon' | 'evening'>('all');
+  const [colorLabelFilter, setColorLabelFilter] = useState<string | 'all'>('all');
+  const [isCompactDensity, setIsCompactDensity] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [showHeatmap, setShowHeatmap] = useState(false);
 
@@ -79,8 +95,63 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
   const activeTimerTask = activeTimer ? tasks.find((t) => t.id === activeTimer.taskId) : null;
   const activeTimerGoal = activeTimerTask ? goals.find((g) => g.id === activeTimerTask.goalId) : null;
 
+  const availableColorLabels = useMemo(() => {
+    const map = new Map<string, { label: string; color: string; count: number }>();
+    todayProgress.tasks.forEach((tp) => {
+      if (tp.goalColorLabel) {
+        const existing = map.get(tp.goalColorLabel);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          map.set(tp.goalColorLabel, {
+            label: tp.goalColorLabel,
+            color: tp.goalColor,
+            count: 1,
+          });
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [todayProgress.tasks]);
+
+  const getTaskBucket = (taskObj?: Task): 'morning' | 'afternoon' | 'evening' => {
+    const timeStr = taskObj?.preferredTime || taskObj?.deadlineTime;
+    if (!timeStr) return 'morning';
+    const hour = parseInt(timeStr.split(':')[0], 10);
+    if (isNaN(hour)) return 'morning';
+    if (hour < 12) return 'morning';
+    if (hour < 17) return 'afternoon';
+    return 'evening';
+  };
+
+  const morningTasks = todayProgress.tasks.filter((tp) => {
+    const t = tasks.find((item) => item.id === tp.taskId);
+    return getTaskBucket(t) === 'morning';
+  });
+
+  const afternoonTasks = todayProgress.tasks.filter((tp) => {
+    const t = tasks.find((item) => item.id === tp.taskId);
+    return getTaskBucket(t) === 'afternoon';
+  });
+
+  const eveningTasks = todayProgress.tasks.filter((tp) => {
+    const t = tasks.find((item) => item.id === tp.taskId);
+    return getTaskBucket(t) === 'evening';
+  });
+
+  const filteredTasks = todayProgress.tasks.filter((tp) => {
+    if (taskBucket !== 'all') {
+      const t = tasks.find((item) => item.id === tp.taskId);
+      if (getTaskBucket(t) !== taskBucket) return false;
+    }
+    if (colorLabelFilter !== 'all') {
+      if (tp.goalColorLabel !== colorLabelFilter) return false;
+    }
+    return true;
+  });
+
   return (
-    <div className="space-y-8 w-full max-w-[1400px] mx-auto pb-16">
+    <div className={`space-y-8 w-full max-w-[1400px] mx-auto pb-16 ${isCompactDensity ? 'compact-mode space-y-5' : ''}`}>
       {/* 1. Header & Greeting */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -93,10 +164,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Mobile/Desktop Density Toggle */}
+          <button
+            id="density-toggle-btn"
+            type="button"
+            onClick={() => setIsCompactDensity(!isCompactDensity)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 text-xs font-semibold transition-colors cursor-pointer"
+            title={isCompactDensity ? 'Switch to Comfortable spacing' : 'Switch to Compact view'}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-amber-500" />
+            <span className="hidden sm:inline">{isCompactDensity ? 'Compact View' : 'Comfortable'}</span>
+          </button>
+
+          {/* Quick Manual Log Button */}
+          <button
+            id="quick-log-offline-btn"
+            type="button"
+            onClick={() => {
+              setSelectedTaskForManualLog(tasks[0]?.id || null);
+              setIsManualLogModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-amber-500/30 hover:bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs font-semibold transition-colors cursor-pointer"
+            title="Log offline focused time"
+          >
+            <Clock className="w-3.5 h-3.5 text-amber-500" />
+            <span className="hidden sm:inline">+ Log Offline</span>
+          </button>
+
           <button
             onClick={onOpenCreateGoal}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-stone-900 dark:bg-amber-500 hover:bg-stone-800 dark:hover:bg-amber-400 text-white dark:text-stone-950 font-bold text-sm shadow-xs transition-colors"
+            className="flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-stone-900 dark:bg-amber-500 hover:bg-stone-800 dark:hover:bg-amber-400 text-white dark:text-stone-950 font-bold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Create Goal</span>
@@ -104,8 +202,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
         </div>
       </div>
 
-      {/* Daily Motivational Quote */}
-      <DailyQuote todayDate={todayDate} />
+      {/* Daily Motivation & Productivity Quote */}
+      <Motivation todayDate={todayDate} />
 
       {/* Active Focus Session Hero Banner (When timer is running or paused) */}
       {activeTimer && activeTimerTask && (
@@ -121,9 +219,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
                 {activeTimer.isRunning ? 'Session Live' : 'Session Paused'}
               </span>
               {activeTimerGoal && (
-                <span className="text-xs font-semibold text-stone-600 dark:text-stone-400 truncate">
-                  • {activeTimerGoal.title}
-                </span>
+                <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                  <span className="text-xs font-semibold text-stone-600 dark:text-stone-400 truncate">
+                    • {activeTimerGoal.title}
+                  </span>
+                  {activeTimerGoal.colorLabel && (
+                    <span
+                      className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
+                      style={{
+                        backgroundColor: `${activeTimerGoal.color}18`,
+                        borderColor: `${activeTimerGoal.color}40`,
+                        color: activeTimerGoal.color,
+                      }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: activeTimerGoal.color }} />
+                      <span>{activeTimerGoal.colorLabel}</span>
+                    </span>
+                  )}
+                </div>
               )}
             </div>
             <h2 className="text-lg sm:text-xl font-extrabold text-stone-900 dark:text-stone-50 truncate">
@@ -275,19 +388,84 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
               <span className="text-xs text-stone-400">Best: {streakInfo.bestStreak}d</span>
             </div>
 
-            <div className="flex items-center gap-3 my-2">
-              <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/40 flex items-center justify-center">
-                <Flame className="w-7 h-7 text-orange-500 fill-orange-500" />
-              </div>
-              <div>
-                <div className="text-3xl font-extrabold text-stone-900 dark:text-stone-100 font-mono leading-none">
-                  {streakInfo.currentStreak}{' '}
+            <div className="flex items-center gap-3.5 my-2">
+              <button
+                type="button"
+                onClick={() => triggerStreakCelebrationNotification()}
+                title={
+                  streakInfo.isStreakMaintainedToday
+                    ? 'Streak extended today! Click to view celebratory animation'
+                    : 'Click to preview streak celebration'
+                }
+                className={`relative w-13 h-13 rounded-2xl flex items-center justify-center transition-all cursor-pointer group ${
+                  streakInfo.isStreakMaintainedToday
+                    ? 'bg-gradient-to-br from-amber-500/20 via-orange-500/20 to-rose-500/10 border-2 border-orange-500/40 shadow-md shadow-orange-500/20 hover:scale-105 active:scale-95'
+                    : 'bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/40 hover:bg-orange-100/60 dark:hover:bg-orange-950/60'
+                }`}
+              >
+                {streakInfo.isStreakMaintainedToday && (
+                  <motion.div
+                    animate={{
+                      scale: [1, 1.25, 1],
+                      opacity: [0.3, 0.7, 0.3],
+                    }}
+                    transition={{
+                      duration: 2.5,
+                      repeat: Infinity,
+                      ease: 'easeInOut',
+                    }}
+                    className="absolute inset-0 rounded-2xl bg-orange-500/20 blur-[3px] pointer-events-none"
+                  />
+                )}
+                <motion.div
+                  animate={
+                    streakInfo.isStreakMaintainedToday
+                      ? {
+                          scale: [1, 1.15, 1, 1.1, 1],
+                          rotate: [0, -4, 4, -2, 0],
+                        }
+                      : { scale: 1 }
+                  }
+                  transition={{
+                    duration: 2.2,
+                    repeat: streakInfo.isStreakMaintainedToday ? Infinity : 0,
+                    ease: 'easeInOut',
+                  }}
+                >
+                  <Flame
+                    className={`w-7 h-7 transition-colors ${
+                      streakInfo.isStreakMaintainedToday
+                        ? 'text-orange-500 fill-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]'
+                        : 'text-orange-400 group-hover:text-orange-500'
+                    }`}
+                  />
+                </motion.div>
+                {streakInfo.isStreakMaintainedToday && (
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500" />
+                  </span>
+                )}
+              </button>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl font-extrabold text-stone-900 dark:text-stone-100 font-mono leading-none">
+                    {streakInfo.currentStreak}
+                  </span>
                   <span className="text-base font-medium text-stone-500">days</span>
                 </div>
-                <div className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                  {streakInfo.isStreakMaintainedToday
-                    ? 'Extended today ✓'
-                    : 'Complete today to maintain'}
+                <div className="text-xs font-semibold mt-1">
+                  {streakInfo.isStreakMaintainedToday ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                      <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
+                      Extended today ✓
+                    </span>
+                  ) : (
+                    <span className="text-stone-500 dark:text-stone-400">
+                      Complete today to extend
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -351,15 +529,121 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
 
       {/* 4. Today's Tasks Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight text-stone-900 dark:text-stone-100">
-            Today's Tasks ({todayProgress.tasks.length})
-          </h2>
-          <span className="text-xs text-stone-500 dark:text-stone-400">
-            {todayProgress.tasks.filter((t) => t.isCompleted).length} of{' '}
-            {todayProgress.tasks.length} finished
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-stone-900 dark:text-stone-100">
+              Today's Tasks ({todayProgress.tasks.length})
+            </h2>
+            <span className="text-xs text-stone-500 dark:text-stone-400">
+              {todayProgress.tasks.filter((t) => t.isCompleted).length} of{' '}
+              {todayProgress.tasks.length} finished
+            </span>
+          </div>
+
+          {/* Time-of-Day Buckets Navigation */}
+          {todayProgress.tasks.length > 0 && (
+            <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800/80 p-1 rounded-2xl overflow-x-auto text-xs font-semibold">
+              <button
+                id="bucket-all-btn"
+                type="button"
+                onClick={() => setTaskBucket('all')}
+                className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  taskBucket === 'all'
+                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs font-bold'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                All ({todayProgress.tasks.length})
+              </button>
+              <button
+                id="bucket-morning-btn"
+                type="button"
+                onClick={() => setTaskBucket('morning')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  taskBucket === 'morning'
+                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs font-bold'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Sunrise className="w-3.5 h-3.5 text-amber-500" />
+                <span>Morning ({morningTasks.length})</span>
+              </button>
+              <button
+                id="bucket-afternoon-btn"
+                type="button"
+                onClick={() => setTaskBucket('afternoon')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  taskBucket === 'afternoon'
+                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs font-bold'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5 text-orange-500" />
+                <span>Afternoon ({afternoonTasks.length})</span>
+              </button>
+              <button
+                id="bucket-evening-btn"
+                type="button"
+                onClick={() => setTaskBucket('evening')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  taskBucket === 'evening'
+                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs font-bold'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Sunset className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Evening ({eveningTasks.length})</span>
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Color Label Category Filter Pills */}
+        {availableColorLabels.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+            <span className="text-xs font-semibold text-stone-400 flex items-center gap-1 mr-1">
+              <Tag className="w-3 h-3 text-amber-500" />
+              <span>Category:</span>
+            </span>
+            <button
+              id="label-filter-all-btn"
+              type="button"
+              onClick={() => setColorLabelFilter('all')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                colorLabelFilter === 'all'
+                  ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-transparent shadow-2xs font-bold'
+                  : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-400 hover:border-stone-300'
+              }`}
+            >
+              All Labels ({todayProgress.tasks.length})
+            </button>
+            {availableColorLabels.map((lbl) => (
+              <button
+                key={lbl.label}
+                id={`label-filter-${lbl.label.toLowerCase().replace(/\s+/g, '-')}-btn`}
+                type="button"
+                onClick={() => setColorLabelFilter(colorLabelFilter === lbl.label ? 'all' : lbl.label)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                  colorLabelFilter === lbl.label
+                    ? 'border-transparent text-white font-bold shadow-2xs'
+                    : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:border-stone-300'
+                }`}
+                style={
+                  colorLabelFilter === lbl.label
+                    ? { backgroundColor: lbl.color }
+                    : undefined
+                }
+              >
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: lbl.color }}
+                />
+                <span>{lbl.label}</span>
+                <span className="text-[10px] opacity-75">({lbl.count})</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {todayProgress.tasks.length === 0 ? (
           <div className="p-12 text-center rounded-2xl border border-dashed border-stone-200 dark:border-stone-800 bg-white/40 dark:bg-stone-900/40">
@@ -377,9 +661,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
               Start With One Goal
             </button>
           </div>
+        ) : filteredTasks.length === 0 ? (
+          <div className="p-8 text-center rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/40 text-stone-500 text-xs">
+            No tasks scheduled matching the current filters{taskBucket !== 'all' ? ` (${taskBucket} bucket)` : ''}{colorLabelFilter !== 'all' ? ` ("${colorLabelFilter}" label)` : ''}.
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">
-            {todayProgress.tasks.map((tp) => {
+            {filteredTasks.map((tp) => {
               const isTimerActiveOnThisTask = activeTimer && activeTimer.taskId === tp.taskId;
               const isTimerRunningOnThisTask =
                 isTimerActiveOnThisTask && activeTimer.isRunning;
@@ -391,7 +679,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
               return (
                 <div
                   key={tp.taskId}
-                  className={`p-5 rounded-2xl border transition-all ${
+                  className={`rounded-2xl border transition-all ${
+                    isCompactDensity ? 'p-3.5 sm:p-4' : 'p-5'
+                  } ${
                     tp.isCompleted
                       ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/40'
                       : isTimerActiveOnThisTask
@@ -402,7 +692,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     {/* Left: Task Meta */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span
                           className="w-2 h-2 rounded-full shrink-0"
                           style={{ backgroundColor: tp.goalColor }}
@@ -410,6 +700,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
                         <span className="text-xs font-medium text-stone-500 dark:text-stone-400 truncate">
                           {tp.goalTitle}
                         </span>
+                        {/* Custom Color Label Badge */}
+                        {tp.goalColorLabel && (
+                          <span
+                            className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
+                            style={{
+                              backgroundColor: `${tp.goalColor}18`,
+                              borderColor: `${tp.goalColor}40`,
+                              color: tp.goalColor,
+                            }}
+                          >
+                            <span
+                              className="w-1.5 h-1.5 rounded-full shrink-0"
+                              style={{ backgroundColor: tp.goalColor }}
+                            />
+                            <span>{tp.goalColorLabel}</span>
+                          </span>
+                        )}
                         {tp.recoverySeconds > 0 && (
                           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
                             +{formatSecondsToHuman(tp.recoverySeconds)} Recovery
@@ -422,10 +729,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
                           {tp.taskTitle}
                         </h3>
                         {tp.isCompleted && (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/70 px-2 py-0.5 rounded-full">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Completed
-                          </span>
+                          <div className="inline-flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/70 px-2.5 py-0.5 rounded-full">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Completed
+                            </span>
+                            {streakInfo.isStreakMaintainedToday && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-700 dark:text-orange-300 bg-orange-100/90 dark:bg-orange-950/60 border border-orange-200 dark:border-orange-800/60 px-2 py-0.5 rounded-full"
+                                title="Task contributed to extending today's streak"
+                              >
+                                <Flame className="w-3 h-3 text-orange-500 fill-orange-500 animate-pulse" />
+                                <span>Streak Active</span>
+                              </span>
+                            )}
+                          </div>
                         )}
 
                         {/* Deadline Indicator Pill */}
@@ -490,9 +808,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
 
                       {/* Timer Button Controls */}
                       {tp.isCompleted ? (
-                        <div className="px-4 py-2 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          <span>Goal Met</span>
+                        <div className="flex items-center gap-1.5">
+                          <div className="px-3.5 py-2 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/60 border border-emerald-200/50 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <span>Goal Met</span>
+                          </div>
+                          {streakInfo.isStreakMaintainedToday && (
+                            <button
+                              type="button"
+                              onClick={() => triggerStreakCelebrationNotification(streakInfo.currentStreak, tp.taskTitle)}
+                              className="px-2.5 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/50 dark:hover:bg-orange-900/60 border border-orange-200/80 dark:border-orange-900/60 text-orange-700 dark:text-orange-300 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer hover:scale-105 active:scale-95"
+                              title="Click to view streak celebration animation for this task"
+                            >
+                              <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
+                              <span className="hidden sm:inline">Streak</span>
+                            </button>
+                          )}
                         </div>
                       ) : isTimerActiveOnThisTask ? (
                         <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-amber-500/10 dark:bg-stone-800/90 border border-amber-400/40 dark:border-amber-500/30 shadow-xs">
@@ -552,14 +883,47 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => startTimer(tp.taskId, false)}
-                          className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer hover:scale-[1.02] active:scale-95"
-                          title="Start Timer for this task"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                          <span>Start Timer</span>
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setQuickCompletingTaskId(tp.taskId);
+                              try {
+                                await completeTaskToday(tp.taskId);
+                              } finally {
+                                setQuickCompletingTaskId(null);
+                              }
+                            }}
+                            disabled={quickCompletingTaskId === tp.taskId}
+                            className="px-3 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-50/70 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer hover:scale-[1.02] active:scale-95"
+                            title="Quick mark task as completed today (extends streak!)"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <span>{quickCompletingTaskId === tp.taskId ? 'Completing...' : 'Mark Done'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTaskForManualLog(tp.taskId);
+                              setIsManualLogModalOpen(true);
+                            }}
+                            className="p-2 sm:px-3 sm:py-2.5 rounded-xl border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-600 dark:text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                            title="Log offline focused session for this task"
+                          >
+                            <Clock className="w-3.5 h-3.5 text-amber-500" />
+                            <span className="hidden sm:inline">Offline</span>
+                          </button>
+
+                          <button
+                            onClick={() => startTimer(tp.taskId, false)}
+                            className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer hover:scale-[1.02] active:scale-95"
+                            title="Start Timer for this task"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <span>Start Timer</span>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -664,6 +1028,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
           onClose={() => setSelectedTaskForCalendar(null)}
         />
       )}
+
+      {/* Manual Time Log Modal */}
+      <ManualTimeLogModal
+        isOpen={isManualLogModalOpen}
+        initialTaskId={selectedTaskForManualLog || undefined}
+        onClose={() => {
+          setIsManualLogModalOpen(false);
+          setSelectedTaskForManualLog(null);
+        }}
+      />
     </div>
   );
 };

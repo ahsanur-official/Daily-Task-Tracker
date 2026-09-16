@@ -48,6 +48,7 @@ service cloud.firestore {
              data.endDate is string && data.endDate.size() <= 15 &&
              data.status in ['active', 'completed', 'paused', 'archived'] &&
              (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             (!('colorLabel' in data) || (data.colorLabel is string && data.colorLabel.size() <= 50)) &&
              (!('durationDays' in data) || (data.durationDays is number && data.durationDays >= 1 && data.durationDays <= 365));
     }
 
