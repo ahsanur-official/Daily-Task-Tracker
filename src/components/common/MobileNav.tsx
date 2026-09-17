@@ -147,14 +147,19 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
               <div className="flex items-center gap-2.5">
                 <img
                   src="/logo.svg"
-                  alt="Daily Task Tracker"
-                  className="w-7 h-7 object-contain"
+                  alt="Daily Task Tracker Logo"
+                  className="w-7 h-7 object-contain drop-shadow-xs"
                 />
-                <div>
-                  <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
-                    Daily Task Tracker
-                  </h3>
-                  <span className="text-[10px] text-stone-400">
+                <div className="flex flex-col">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-sm font-bold text-stone-900 dark:text-stone-100 tracking-tight leading-none">
+                      Daily Task
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wide uppercase">
+                      Tracker
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-stone-400 mt-0.5">
                     {streakInfo.currentStreak}d streak active
                   </span>
                 </div>

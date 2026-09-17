@@ -70,18 +70,18 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveView('dashboard')}
-            className="flex items-center gap-2.5 text-left group cursor-pointer"
+            className="flex items-center gap-2.5 sm:gap-3 text-left group cursor-pointer"
           >
             <img
               src="/logo.svg"
               alt="Daily Task Tracker Logo"
-              className="w-9 h-9 object-contain drop-shadow-xs group-hover:scale-105 transition-transform"
+              className="w-9 h-9 sm:w-10 sm:h-10 object-contain drop-shadow-xs group-hover:scale-105 transition-transform shrink-0"
             />
-            <div className="hidden sm:block">
-              <span className="font-bold text-stone-900 dark:text-stone-100 tracking-tight text-base block leading-none">
+            <div className="flex flex-col">
+              <span className="font-bold text-stone-900 dark:text-stone-100 tracking-tight text-sm sm:text-base leading-none">
                 Daily Task
               </span>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold tracking-wide uppercase">
+              <span className="text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 font-bold tracking-wide uppercase mt-0.5">
                 Tracker
               </span>
             </div>

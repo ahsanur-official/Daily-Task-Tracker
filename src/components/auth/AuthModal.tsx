@@ -330,16 +330,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
           <div className="flex items-center gap-3 mb-2 pr-8">
             <img
               src="/logo.svg"
-              alt="Daily Task Tracker"
-              className="w-11 h-11 object-contain shrink-0"
+              alt="Daily Task Tracker Logo"
+              className="w-11 h-11 object-contain shrink-0 drop-shadow-xs"
             />
             <div>
-              <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100 tracking-tight flex items-center gap-2">
-                Daily Task Tracker
-              </h2>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-bold text-stone-900 dark:text-stone-100 tracking-tight leading-none">
+                  Daily Task
+                </span>
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wide uppercase">
+                  Tracker
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   Cloud Sync Active
                 </span>
                 <span className="text-stone-300 dark:text-stone-700">•</span>

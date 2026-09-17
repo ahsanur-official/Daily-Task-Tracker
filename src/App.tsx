@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
@@ -33,27 +34,30 @@ const MainContent: React.FC = () => {
   } = useApp();
   const [isCreateGoalOpen, setIsCreateGoalOpen] = useState(false);
 
-  // 1. Loading authentication session
+  // 1. App opening & loading authentication session
   if (isAuthLoading && !user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 p-4">
-        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 p-4 select-none">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm animate-fadeIn">
           <div className="relative">
             <img
               src="/logo.svg"
-              alt="Daily Task Tracker"
-              className="w-20 h-20 object-contain drop-shadow-md animate-pulse"
+              alt="Daily Task Tracker Logo"
+              className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-md animate-pulse"
             />
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
-              Daily Task Tracker
-            </h1>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+          <div className="flex flex-col items-center">
+            <span className="font-bold text-stone-900 dark:text-stone-100 tracking-tight text-2xl sm:text-3xl leading-none">
+              Daily Task
+            </span>
+            <span className="text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 font-bold tracking-widest uppercase mt-1">
+              Tracker
+            </span>
+            <p className="text-xs text-stone-400 dark:text-stone-500 mt-3 font-medium">
               Loading workspace...
             </p>
           </div>
-          <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mt-2" />
+          <div className="w-7 h-7 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mt-1" />
         </div>
       </div>
     );
@@ -93,21 +97,30 @@ const MainContent: React.FC = () => {
 
         {/* Dynamic View Route */}
         <main className="flex-1 min-w-0">
-          <div key={activeView} className="animate-fadeIn gpu-layer">
-            {activeView === 'dashboard' && (
-              <DashboardView onOpenCreateGoal={handleOpenCreateGoal} />
-            )}
-            {activeView === 'goals' && (
-              <GoalsView onOpenCreateGoal={handleOpenCreateGoal} />
-            )}
-            {activeView === 'calendar' && <CalendarView />}
-            {activeView === 'time' && <TimeTrackingView />}
-            {activeView === 'certificates' && <CertificatesView />}
-            {activeView === 'verify' && <VerifyCertificateView />}
-            {activeView === 'analytics' && <AnalyticsView />}
-            {activeView === 'profile' && <ProfileView />}
-            {activeView === 'settings' && <SettingsView />}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeView}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="gpu-layer"
+            >
+              {activeView === 'dashboard' && (
+                <DashboardView onOpenCreateGoal={handleOpenCreateGoal} />
+              )}
+              {activeView === 'goals' && (
+                <GoalsView onOpenCreateGoal={handleOpenCreateGoal} />
+              )}
+              {activeView === 'calendar' && <CalendarView />}
+              {activeView === 'time' && <TimeTrackingView />}
+              {activeView === 'certificates' && <CertificatesView />}
+              {activeView === 'verify' && <VerifyCertificateView />}
+              {activeView === 'analytics' && <AnalyticsView />}
+              {activeView === 'profile' && <ProfileView />}
+              {activeView === 'settings' && <SettingsView />}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 

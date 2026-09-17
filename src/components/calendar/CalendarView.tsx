@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../../context/AppContext';
 import { TaskCalendarView } from './TaskCalendarView';
 import { ScheduleRecommendationsCard } from './ScheduleRecommendationsCard';
@@ -120,15 +121,23 @@ export const CalendarView: React.FC = () => {
       </div>
 
       {/* Render Individual Task Calendar for the selected task */}
-      {selectedTask && (
-        <div className="animate-in fade-in duration-200">
-          <TaskCalendarView
-            task={selectedTask}
-            goal={selectedGoal}
-            onSelectTask={(newTask) => setSelectedTaskId(newTask.id)}
-          />
-        </div>
-      )}
+      <AnimatePresence mode="wait">
+        {selectedTask && (
+          <motion.div
+            key={selectedTask.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+          >
+            <TaskCalendarView
+              task={selectedTask}
+              goal={selectedGoal}
+              onSelectTask={(newTask) => setSelectedTaskId(newTask.id)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Automated Suggestion & Schedule Recommendations Component */}
       <div className="pt-6 border-t border-stone-200 dark:border-stone-800">
