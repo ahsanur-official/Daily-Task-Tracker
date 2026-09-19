@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/common/Header';
-import { Sidebar } from './components/common/Sidebar';
+import { DesktopHamburgerMenu } from './components/common/DesktopHamburgerMenu';
 import { MobileNav } from './components/common/MobileNav';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { GoalsView } from './components/goals/GoalsView';
@@ -90,13 +90,13 @@ const MainContent: React.FC = () => {
       {/* Top Application Header */}
       <Header />
 
-      {/* Body with Sidebar & Content */}
-      <div className="flex-1 flex w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-6 gap-8 xl:gap-10">
-        {/* Left Desktop Sidebar Navigation */}
-        <Sidebar onOpenCreateGoal={handleOpenCreateGoal} />
+      {/* Slide-over Desktop Hamburger Navigation Menu */}
+      <DesktopHamburgerMenu onOpenCreateGoal={handleOpenCreateGoal} />
 
+      {/* Main Workspace Content Area */}
+      <div className="flex-1 flex w-full mx-auto transition-all max-w-[1720px] px-3 sm:px-6 lg:px-8 xl:px-12 py-4 sm:py-6 pb-24 md:pb-6">
         {/* Dynamic View Route */}
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 w-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}

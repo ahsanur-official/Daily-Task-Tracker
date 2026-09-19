@@ -725,15 +725,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          {/* Top: Highlighted Goal Name as the prominent title */}
+                          <div className="flex flex-wrap items-center gap-2">
                             <span
-                              className="w-2 h-2 rounded-full shrink-0"
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
                               style={{ backgroundColor: tp.goalColor }}
                             />
-                            <span className="text-xs font-medium text-stone-500 dark:text-stone-400 truncate">
+                            <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 truncate">
                               {tp.goalTitle}
-                            </span>
-                            {/* Custom Color Label Badge */}
+                            </h3>
                             {tp.goalColorLabel && (
                               <span
                                 className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
@@ -750,17 +750,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
                                 <span>{tp.goalColorLabel}</span>
                               </span>
                             )}
-                            {tp.recoverySeconds > 0 && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                                +{formatSecondsToHuman(tp.recoverySeconds)} Recovery
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 truncate">
-                              {tp.taskTitle}
-                            </h3>
                             {tp.isCompleted && (
                               <div className="inline-flex items-center gap-1.5">
                                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/70 px-2.5 py-0.5 rounded-full">
@@ -799,7 +788,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
                                 </span>
                               </span>
                             )}
+
+                            {tp.recoverySeconds > 0 && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                                +{formatSecondsToHuman(tp.recoverySeconds)} Recovery
+                              </span>
+                            )}
                           </div>
+
+                          {/* Secondary: Task label if distinct and not generic placeholder */}
+                          {tp.taskTitle && tp.taskTitle !== tp.goalTitle && tp.taskTitle !== 'Core Practice Session' && (
+                            <div className="text-xs text-stone-500 dark:text-stone-400 font-medium mt-1">
+                              Task: <span className="font-semibold text-stone-700 dark:text-stone-300">{tp.taskTitle}</span>
+                            </div>
+                          )}
 
                           {/* Time Duration Row */}
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 dark:text-stone-400 mt-2 font-mono">
@@ -917,25 +919,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              setQuickCompletingTaskId(tp.taskId);
-                              try {
-                                await completeTaskToday(tp.taskId);
-                              } finally {
-                                setQuickCompletingTaskId(null);
-                              }
-                            }}
-                            disabled={quickCompletingTaskId === tp.taskId}
-                            className="px-3 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-50/70 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer hover:scale-[1.02] active:scale-95"
-                            title="Quick mark task as completed today (extends streak!)"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                            <span>{quickCompletingTaskId === tp.taskId ? 'Completing...' : 'Mark Done'}</span>
-                          </button>
-
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => {
@@ -946,13 +930,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onOpenCreateGoal }
                             title="Log offline focused session for this task"
                           >
                             <Clock className="w-3.5 h-3.5 text-amber-500" />
-                            <span className="hidden sm:inline">Offline</span>
+                            <span className="hidden sm:inline">Log Time</span>
                           </button>
 
                           <button
                             onClick={() => startTimer(tp.taskId, false)}
                             className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer hover:scale-[1.02] active:scale-95"
-                            title="Start Timer for this task"
+                            title="Start Focus Timer for this task"
                           >
                             <Play className="w-3.5 h-3.5 fill-current" />
                             <span>Start Timer</span>

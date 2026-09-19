@@ -32,14 +32,14 @@ export const TaskCalendarModal: React.FC<TaskCalendarModalProps> = ({
     <ModalPortal isOpen={!!task}>
       <div
         onClick={onClose}
-        className="fixed inset-0 z-[100] bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto"
+        className="fixed inset-0 z-[100] bg-stone-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 pointer-events-auto"
         role="dialog"
         aria-modal="true"
         aria-label="Task Calendar Modal"
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-5xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200"
+          className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-5xl shadow-2xl overflow-hidden max-h-[calc(100dvh-2rem)] sm:max-h-[88vh] flex flex-col my-auto animate-in zoom-in-95 duration-200"
         >
           {/* Mandatory, Always-Visible 'X' Close Button in Top-Right Corner */}
           <button

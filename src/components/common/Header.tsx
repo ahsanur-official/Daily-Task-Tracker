@@ -18,6 +18,7 @@ import {
   Cloud,
   MoreHorizontal,
   Settings,
+  Menu,
 } from 'lucide-react';
 import { formatSecondsToDigital } from '../../utils/time';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -34,12 +35,15 @@ export const Header: React.FC = () => {
     resumeTimer,
     setDistractionFree,
     tasks,
+    goals,
     updateProfile,
     setActiveView,
     openAuthModal,
     logout,
     isDark,
     toggleTheme,
+    toggleDesktopMenu,
+    isDesktopMenuOpen,
   } = useApp();
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -62,12 +66,25 @@ export const Header: React.FC = () => {
   }, []);
 
   const currentTask = activeTimer ? tasks.find((t) => t.id === activeTimer.taskId) : null;
+  const currentGoal = currentTask ? goals.find((g) => g.id === currentTask.goalId) : null;
 
   return (
     <header className="h-16 border-b border-stone-200 dark:border-stone-800 bg-white/85 dark:bg-stone-900/85 backdrop-blur-md sticky top-0 z-30">
       <div className="w-full max-w-[1720px] mx-auto h-full px-4 sm:px-6 lg:px-8 xl:px-12 flex items-center justify-between">
-        {/* Left: Brand */}
-        <div className="flex items-center gap-3">
+        {/* Left: Desktop Hamburger Button & Brand */}
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Desktop Hamburger Button (Desktop Only) */}
+          <button
+            type="button"
+            onClick={toggleDesktopMenu}
+            className="hidden md:flex items-center justify-center w-10 h-10 rounded-xl border border-stone-200 dark:border-stone-800 text-stone-700 hover:text-stone-900 dark:text-stone-300 dark:hover:text-white bg-white dark:bg-stone-800/80 hover:bg-stone-100 dark:hover:bg-stone-800 transition-all cursor-pointer shadow-xs active:scale-95"
+            title={isDesktopMenuOpen ? 'Close Navigation Menu (Esc)' : 'Open Navigation Menu (Ctrl + B)'}
+            aria-label="Toggle Desktop Navigation Menu"
+            aria-expanded={isDesktopMenuOpen}
+          >
+            <Menu className="w-5 h-5 stroke-[2.2]" />
+          </button>
+
           <button
             onClick={() => setActiveView('dashboard')}
             className="flex items-center gap-2.5 sm:gap-3 text-left group cursor-pointer"
@@ -137,9 +154,15 @@ export const Header: React.FC = () => {
               </button>
             </div>
 
-            <div className="text-left hidden sm:block max-w-[150px] truncate">
-              <div className="text-xs font-medium text-stone-900 dark:text-stone-100 truncate">
-                {currentTask.title}
+            <div className="text-left hidden sm:block max-w-[170px] truncate">
+              <div className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate flex items-center gap-1.5">
+                {currentGoal?.color && (
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: currentGoal.color }}
+                  />
+                )}
+                <span className="truncate">{currentGoal?.title || currentTask.title}</span>
               </div>
               <div className="text-[11px] font-mono font-semibold text-amber-700 dark:text-amber-400">
                 {formatSecondsToDigital(

@@ -15,14 +15,39 @@ import {
   Lock,
   Bell,
   BellRing,
+  ArrowLeft,
+  Edit2,
+  Save,
+  Plus,
 } from 'lucide-react';
-import { Goal, Task } from '../../types';
-import { formatSecondsToHuman, formatFullDateLabel, getDaysDifference } from '../../utils/time';
+import { Goal, GoalCategory, Task } from '../../types';
+import { formatSecondsToHuman, getDaysDifference } from '../../utils/time';
 import { evaluateGoalProgress } from '../../utils/recovery';
 import { TaskCalendarModal } from '../calendar/TaskCalendarModal';
 import { ModalPortal } from '../common/ModalPortal';
 import { AnimatedRingProgress } from '../common/AnimatedRingProgress';
-import { motion } from 'motion/react';
+
+const COLORS = [
+  '#f59e0b', // amber
+  '#3b82f6', // blue
+  '#10b981', // emerald
+  '#8b5cf6', // purple
+  '#ec4899', // pink
+  '#ef4444', // red
+  '#06b6d4', // cyan
+  '#84cc16', // lime
+];
+
+const CATEGORIES: GoalCategory[] = [
+  'Coding & Tech',
+  'Health & Fitness',
+  'Learning & Language',
+  'Reading & Writing',
+  'Mindfulness',
+  'Career & Business',
+  'Creative & Design',
+  'General',
+];
 
 interface GoalDetailModalProps {
   goal: Goal | null;
@@ -34,14 +59,15 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
     tasks,
     sessions,
     updateGoal,
+    updateTask,
+    createTask,
+    deleteTask,
     pauseGoal,
     resumeGoal,
     completeGoal,
     deleteGoal,
     todayDate,
-    user,
     setActiveView,
-    setTargetVerifyId,
     triggerGoalReminderAlert,
     notificationPermission,
     requestNotificationAccess,
@@ -49,6 +75,55 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
 
   const [selectedTaskForCalendar, setSelectedTaskForCalendar] = useState<Task | null>(null);
   const [reminderTestSent, setReminderTestSent] = useState(false);
+
+  // Edit / Modify Mode State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCategory, setEditCategory] = useState<GoalCategory>('Coding & Tech');
+  const [editColor, setEditColor] = useState('#f59e0b');
+  const [editColorLabel, setEditColorLabel] = useState('');
+  const [editReminderEnabled, setEditReminderEnabled] = useState(true);
+  const [editReminderTime, setEditReminderTime] = useState('09:00');
+  const [editMotivationalQuote, setEditMotivationalQuote] = useState('');
+  const [editTasks, setEditTasks] = useState<
+    Array<{ id?: string; title: string; requiredDurationMinutes: number; description?: string }>
+  >([]);
+
+  // Sync edit form state whenever goal changes or edit mode opens
+  useEffect(() => {
+    if (goal) {
+      setEditTitle(goal.title);
+      setEditDescription(goal.description || '');
+      setEditCategory(goal.category);
+      setEditColor(goal.color);
+      setEditColorLabel(goal.colorLabel || '');
+      setEditReminderEnabled(goal.reminderEnabled ?? true);
+      setEditReminderTime(goal.reminderTime || '09:00');
+      setEditMotivationalQuote(goal.motivationalQuote || '');
+
+      const currentGoalTasks = tasks.filter((t) => t.goalId === goal.id);
+      setEditTasks(
+        currentGoalTasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          requiredDurationMinutes: t.requiredDurationMinutes,
+          description: t.description,
+        }))
+      );
+    }
+  }, [goal, tasks, isEditing]);
+
+  // Escape key listener to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   if (!goal) return null;
 
@@ -63,17 +138,6 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
   const isCompleted = goal.status === 'completed';
   const isPaused = goal.status === 'paused';
   const isFullyFulfilled = progressMetrics.isFulfilled || progressMetrics.percentage >= 100;
-
-  // Escape key listener to close modal
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
 
   const handleTogglePause = () => {
     if (isPaused) {
@@ -104,369 +168,690 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
     }
   };
 
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanTitle = editTitle.trim();
+    if (!cleanTitle) return;
+
+    // 1. Update Goal Metadata
+    updateGoal(goal.id, {
+      title: cleanTitle,
+      description: editDescription.trim(),
+      category: editCategory,
+      color: editColor,
+      colorLabel: editColorLabel.trim() || undefined,
+      reminderEnabled: editReminderEnabled,
+      reminderTime: editReminderTime,
+      motivationalQuote: editMotivationalQuote.trim() || undefined,
+    });
+
+    // 2. Update existing tasks & add new tasks
+    editTasks.forEach((et) => {
+      const taskTitle = et.title.trim() || cleanTitle;
+      const duration = Math.max(1, et.requiredDurationMinutes || 30);
+
+      if (et.id) {
+        updateTask(et.id, {
+          title: taskTitle,
+          requiredDurationMinutes: duration,
+          description: et.description,
+        });
+      } else {
+        createTask({
+          goalId: goal.id,
+          title: taskTitle,
+          requiredDurationMinutes: duration,
+          description: et.description,
+          status: 'active',
+        });
+      }
+    });
+
+    setIsEditing(false);
+  };
+
   return (
     <ModalPortal isOpen={!!goal}>
       <div
         onClick={onClose}
-        className="fixed inset-0 z-[100] bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto cursor-pointer"
+        className="fixed inset-0 z-[100] bg-stone-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 pointer-events-auto"
         role="dialog"
         aria-modal="true"
         aria-label="Goal Details Modal"
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-2xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200 cursor-default"
+          className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-2xl shadow-2xl overflow-hidden max-h-[calc(100dvh-2rem)] sm:max-h-[88vh] flex flex-col my-auto animate-in fade-in zoom-in-95 duration-200 cursor-default"
         >
-          {/* Mandatory, Always-Visible 'X' Close Button in Top-Right Corner */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute top-4 right-4 sm:top-5 sm:right-5 z-20 w-10 h-10 rounded-xl flex items-center justify-center text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white bg-white/95 hover:bg-stone-100 dark:bg-stone-800/95 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-all shrink-0 cursor-pointer shadow-xs"
-            aria-label="Close goal details modal"
-            title="Close modal (Esc)"
-          >
-            <X className="w-5 h-5 stroke-[2.5]" />
-          </button>
+          {/* Top Bar with Back Button and Close Button */}
+          <div className="shrink-0 px-4 sm:px-6 py-3.5 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between gap-3 bg-stone-50/70 dark:bg-stone-900/70">
+            <button
+              type="button"
+              onClick={isEditing ? () => setIsEditing(false) : onClose}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-stone-100 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-bold border border-stone-200 dark:border-stone-700 transition-all cursor-pointer shadow-xs"
+              title="Back"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>{isEditing ? 'Back to Details' : 'Back'}</span>
+            </button>
 
-          {/* Header */}
-          <div className="shrink-0 p-5 sm:p-6 pr-16 sm:pr-20 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <span
-                className="w-4 h-4 rounded-full shrink-0"
-                style={{ backgroundColor: goal.color }}
-              />
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100 truncate">
-                    {goal.title}
-                  </h2>
-                  {goal.colorLabel && (
-                    <span
-                      className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
-                      style={{
-                        backgroundColor: `${goal.color}18`,
-                        borderColor: `${goal.color}40`,
-                        color: goal.color,
-                      }}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: goal.color }} />
-                      <span>{goal.colorLabel}</span>
-                    </span>
-                  )}
-                  <span
-                    className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${
-                      isCompleted
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                        : isPaused
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                        : 'bg-stone-100 text-stone-800 dark:bg-stone-800 dark:text-stone-300'
-                    }`}
-                  >
-                    {goal.status}
-                  </span>
-                </div>
-                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                  {goal.category} • {goal.durationDays} Days challenge
+            <div className="flex items-center gap-2">
+              {!isEditing && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-xs font-bold border border-amber-200 dark:border-amber-800 transition-all cursor-pointer shadow-xs"
+                  title="Modify Goal"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Modify Goal</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-stone-500 hover:text-stone-950 dark:text-stone-400 dark:hover:text-white bg-white hover:bg-stone-100 dark:bg-stone-800 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-all cursor-pointer shadow-xs"
+                aria-label="Close modal"
+                title="Close (Esc)"
+              >
+                <X className="w-4 h-4 stroke-[2.5]" />
+              </button>
+            </div>
+          </div>
+
+          {/* EDIT MODE */}
+          {isEditing ? (
+            <form onSubmit={handleSaveEdit} className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5 overscroll-contain">
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
+                  Edit & Modify Goal
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Update goal title, duration targets, categories, and daily tasks.
                 </p>
               </div>
-            </div>
-          </div>
 
-          {/* Content - Scrollable */}
-          <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-          {/* Motivation or Description */}
-          {goal.description && (
-            <p className="text-sm text-stone-600 dark:text-stone-300">
-              {goal.description}
-            </p>
-          )}
-
-          {goal.motivationalQuote && (
-            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs italic text-amber-900 dark:text-amber-200">
-              "{goal.motivationalQuote}"
-            </div>
-          )}
-
-          {/* Hero Goal Completion Progress Card with Animated SVG Ring */}
-          <div className="p-5 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200/80 dark:border-stone-700/80 flex flex-col sm:flex-row items-center gap-6">
-            <div className="shrink-0 flex flex-col items-center">
-              <AnimatedRingProgress
-                progress={progressMetrics.percentage}
-                size={96}
-                strokeWidth={8}
-                color={goal.color}
-                glow={isCompleted}
-                subtitle="Goal"
-              />
-              <span className="text-[11px] font-mono font-bold text-stone-500 dark:text-stone-400 mt-1">
-                {isCompleted ? 'Target Achieved' : `${progressMetrics.percentage}% Completed`}
-              </span>
-            </div>
-
-            <div className="flex-1 w-full grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/60 dark:border-stone-700/60">
-                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
-                  Timeline Day
-                </span>
-                <span className="text-lg font-bold font-mono text-stone-900 dark:text-stone-100 mt-0.5 block">
-                  {currentDayNumber} <span className="text-xs font-normal text-stone-400">/ {goal.durationDays}d</span>
-                </span>
+              {/* Goal Title */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">
+                  Goal Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="e.g. Master Full-Stack Web Dev"
+                  className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-sm font-semibold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden"
+                />
               </div>
 
-              <div className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/60 dark:border-stone-700/60">
-                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
-                  Status
-                </span>
-                <span className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5 block capitalize">
-                  {goal.status}
-                </span>
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="What is your purpose or objective?"
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-hidden"
+                />
               </div>
 
-              <div className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/60 dark:border-stone-700/60">
-                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
-                  Tracked Time
-                </span>
-                <span className="text-base font-bold font-mono text-stone-900 dark:text-stone-100 mt-0.5 block">
-                  {formatSecondsToHuman(progressMetrics.totalCompletedSeconds)}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200/60 dark:border-stone-700/60">
-                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">
-                  Remaining
-                </span>
-                <span className="text-base font-bold font-mono text-stone-900 dark:text-stone-100 mt-0.5 block">
-                  {formatSecondsToHuman(progressMetrics.remainingSeconds)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Tasks in this Goal */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-              Daily Task Breakdown ({goalTasks.length})
-            </h3>
-            <div className="space-y-2">
-              {goalTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                >
-                  <div>
-                    <span className="font-bold text-stone-900 dark:text-stone-100 text-sm block">
-                      {task.title}
-                    </span>
-                    {task.description && (
-                      <span className="text-stone-500 dark:text-stone-400 block mt-0.5">{task.description}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="font-mono font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300">
-                      {task.requiredDurationMinutes} mins/day
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTaskForCalendar(task)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 font-semibold transition-colors cursor-pointer"
-                      title="View Task Calendar (Continuity & Missed Days)"
-                    >
-                      <Calendar className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Calendar</span>
-                    </button>
-                  </div>
+              {/* Category & Color */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">
+                    Category
+                  </label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value as GoalCategory)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 outline-hidden"
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Recent Recorded Sessions History */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
-              Recent Recorded Sessions ({goalSessions.length})
-            </h3>
-            {goalSessions.length === 0 ? (
-              <p className="text-xs text-stone-400 italic">No recorded sessions yet.</p>
-            ) : (
-              <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
-                {goalSessions
-                  .slice(-6)
-                  .reverse()
-                  .map((s) => (
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">
+                    Color Label / Tag
+                  </label>
+                  <input
+                    type="text"
+                    value={editColorLabel}
+                    onChange={(e) => setEditColorLabel(e.target.value)}
+                    placeholder="e.g. Work, Study, Health"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs font-medium outline-hidden"
+                  />
+                </div>
+              </div>
+
+              {/* Color Palette */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">
+                  Accent Color
+                </label>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setEditColor(c)}
+                      className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
+                        editColor === c ? 'scale-125 ring-2 ring-offset-2 ring-stone-900 dark:ring-stone-100' : 'hover:scale-110'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Motivational Quote */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1.5">
+                  Motivational Quote
+                </label>
+                <input
+                  type="text"
+                  value={editMotivationalQuote}
+                  onChange={(e) => setEditMotivationalQuote(e.target.value)}
+                  placeholder="e.g. Small steps every day lead to massive results."
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 text-xs outline-hidden"
+                />
+              </div>
+
+              {/* Daily Reminder Settings */}
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                      Daily Phone Notification Reminder
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!editReminderEnabled && notificationPermission !== 'granted') {
+                        requestNotificationAccess();
+                      }
+                      setEditReminderEnabled(!editReminderEnabled);
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      editReminderEnabled ? 'bg-amber-500' : 'bg-stone-300 dark:bg-stone-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                        editReminderEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {editReminderEnabled && (
+                  <div className="flex items-center gap-2 pt-2 border-t border-amber-500/20">
+                    <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <span className="text-xs font-semibold text-stone-700 dark:text-stone-300">
+                      Daily Reminder Time:
+                    </span>
+                    <input
+                      type="time"
+                      value={editReminderTime}
+                      onChange={(e) => setEditReminderTime(e.target.value)}
+                      className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono shadow-xs"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Tasks Under this Goal */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-stone-700 dark:text-stone-300">
+                    Daily Tasks under this Goal
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditTasks((prev) => [
+                        ...prev,
+                        { title: '', requiredDurationMinutes: 30 },
+                      ])
+                    }
+                    className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Task</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2.5">
+                  {editTasks.map((t, idx) => (
                     <div
-                      key={s.id}
-                      className="flex items-center justify-between text-xs p-2.5 rounded-lg bg-stone-50 dark:bg-stone-800/30 text-stone-600 dark:text-stone-400 font-mono"
+                      key={t.id || idx}
+                      className="flex items-center gap-2 p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200 dark:border-stone-700"
                     >
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-3.5 h-3.5 text-stone-400" />
-                        <span>{s.date}</span>
+                      <input
+                        type="text"
+                        placeholder={editTitle.trim() ? `${editTitle.trim()} Session` : 'Task name'}
+                        value={t.title}
+                        onChange={(e) =>
+                          setEditTasks((prev) =>
+                            prev.map((item, i) => (i === idx ? { ...item, title: e.target.value } : item))
+                          )
+                        }
+                        className="flex-1 text-xs px-2.5 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100"
+                      />
+                      <div className="flex items-center gap-1 shrink-0">
+                        <input
+                          type="number"
+                          min={5}
+                          step={5}
+                          value={t.requiredDurationMinutes}
+                          onChange={(e) =>
+                            setEditTasks((prev) =>
+                              prev.map((item, i) =>
+                                i === idx ? { ...item, requiredDurationMinutes: Number(e.target.value) } : item
+                              )
+                            )
+                          }
+                          className="w-16 text-xs px-2 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-center font-mono"
+                        />
+                        <span className="text-xs text-stone-500 font-medium">min</span>
                       </div>
-                      <span className="font-bold text-stone-800 dark:text-stone-200">
-                        {formatSecondsToHuman(s.durationSeconds, true)}
-                      </span>
+
+                      {editTasks.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (t.id) {
+                              deleteTask(t.id);
+                            }
+                            setEditTasks((prev) => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="p-1.5 text-stone-400 hover:text-red-500 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
-              </div>
-            )}
-          </div>
-
-          {/* Daily Notification Reminder Settings (Notifications API) */}
-          <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                  <Bell className="w-4 h-4" />
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100">
-                    Daily Notification Reminder
-                  </h4>
-                  <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                    Alerts you to complete your daily tasks for this goal
+              </div>
+
+              {/* Form Action Buttons */}
+              <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          ) : (
+            /* VIEW MODE */
+            <div className="flex-1 p-5 sm:p-6 space-y-6 overflow-y-auto overscroll-contain">
+              {/* Header Title & Badges */}
+              <div className="flex items-center gap-3">
+                <span
+                  className="w-4 h-4 rounded-full shrink-0"
+                  style={{ backgroundColor: goal.color }}
+                />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100 truncate">
+                      {goal.title}
+                    </h2>
+                    {goal.colorLabel && (
+                      <span
+                        className="px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 inline-flex items-center gap-1"
+                        style={{
+                          backgroundColor: `${goal.color}18`,
+                          borderColor: `${goal.color}40`,
+                          color: goal.color,
+                        }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: goal.color }} />
+                        <span>{goal.colorLabel}</span>
+                      </span>
+                    )}
+                    <span
+                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                        isCompleted
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          : isPaused
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                          : 'bg-stone-100 text-stone-800 dark:bg-stone-800 dark:text-stone-300'
+                      }`}
+                    >
+                      {goal.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                    {goal.category} • {goal.durationDays} Days challenge
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (!goal.reminderEnabled && notificationPermission !== 'granted') {
-                    requestNotificationAccess();
-                  }
-                  updateGoal(goal.id, {
-                    reminderEnabled: !goal.reminderEnabled,
-                    reminderTime: goal.reminderTime || '09:00',
-                  });
-                }}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                  goal.reminderEnabled ? 'bg-amber-500' : 'bg-stone-300 dark:bg-stone-700'
-                }`}
-                role="switch"
-                aria-checked={goal.reminderEnabled}
-                title="Toggle daily reminder"
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
-                    goal.reminderEnabled ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
+              {/* Motivation or Description */}
+              {goal.description && (
+                <p className="text-sm text-stone-600 dark:text-stone-300">
+                  {goal.description}
+                </p>
+              )}
 
-            {goal.reminderEnabled && (
-              <div className="pt-2 border-t border-amber-500/15 flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-150">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span className="text-xs font-semibold text-stone-700 dark:text-stone-300">
-                    Reminder Time:
-                  </span>
-                  <input
-                    type="time"
-                    value={goal.reminderTime || '09:00'}
-                    onChange={(e) => updateGoal(goal.id, { reminderTime: e.target.value })}
-                    className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono shadow-xs"
+              {goal.motivationalQuote && (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs italic text-amber-900 dark:text-amber-200">
+                  "{goal.motivationalQuote}"
+                </div>
+              )}
+
+              {/* Progress Card with Animated SVG Ring */}
+              <div className="p-5 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200/80 dark:border-stone-700/80 flex flex-col sm:flex-row items-center gap-6">
+                <div className="shrink-0 flex flex-col items-center">
+                  <AnimatedRingProgress
+                    progress={progressMetrics.percentage}
+                    size={96}
+                    strokeWidth={8}
+                    color={goal.color}
+                    glow={progressMetrics.percentage >= 100}
                   />
+                  <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 mt-1 uppercase tracking-wider">
+                    Total Progress
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0 grid grid-cols-2 gap-3 text-xs w-full">
+                  <div className="p-3 rounded-xl bg-white dark:bg-stone-800 border border-stone-200/60 dark:border-stone-700/60">
+                    <span className="text-stone-400 block text-[11px] font-medium">Day Timeline</span>
+                    <span className="font-bold text-stone-900 dark:text-stone-100 text-sm font-mono">
+                      Day {currentDayNumber} / {goal.durationDays}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white dark:bg-stone-800 border border-stone-200/60 dark:border-stone-700/60">
+                    <span className="text-stone-400 block text-[11px] font-medium">Days Fulfilled</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm font-mono">
+                      {progressMetrics.fulfilledDaysCount} / {goal.durationDays}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white dark:bg-stone-800 border border-stone-200/60 dark:border-stone-700/60">
+                    <span className="text-stone-400 block text-[11px] font-medium">Logged Focus Time</span>
+                    <span className="font-bold text-stone-900 dark:text-stone-100 text-sm font-mono">
+                      {formatSecondsToHuman(progressMetrics.totalCompletedSeconds)}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white dark:bg-stone-800 border border-stone-200/60 dark:border-stone-700/60">
+                    <span className="text-stone-400 block text-[11px] font-medium">Target Total</span>
+                    <span className="font-bold text-amber-700 dark:text-amber-400 text-sm font-mono">
+                      {formatSecondsToHuman(progressMetrics.totalRequiredSeconds)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tasks in this Goal */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                    Daily Task Breakdown ({goalTasks.length})
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="text-xs text-amber-600 dark:text-amber-400 font-semibold hover:underline cursor-pointer"
+                  >
+                    Modify Tasks
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {goalTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200/80 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    >
+                      <div>
+                        <span className="font-bold text-stone-900 dark:text-stone-100 text-sm block">
+                          {task.title}
+                        </span>
+                        {task.description && (
+                          <span className="text-stone-500 dark:text-stone-400 block mt-0.5">{task.description}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300">
+                          {task.requiredDurationMinutes} mins/day
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTaskForCalendar(task)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 font-semibold transition-colors cursor-pointer"
+                          title="View Task Calendar (Continuity & Missed Days)"
+                        >
+                          <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Calendar</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recent Recorded Sessions History */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                  Recent Recorded Sessions ({goalSessions.length})
+                </h3>
+                {goalSessions.length === 0 ? (
+                  <p className="text-xs text-stone-400 italic">No recorded sessions yet.</p>
+                ) : (
+                  <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                    {goalSessions
+                      .slice(-6)
+                      .reverse()
+                      .map((s) => (
+                        <div
+                          key={s.id}
+                          className="flex items-center justify-between text-xs p-2.5 rounded-lg bg-stone-50 dark:bg-stone-800/30 text-stone-600 dark:text-stone-400 font-mono"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-3.5 h-3.5 text-stone-400" />
+                            <span>{s.date}</span>
+                          </div>
+                          <span className="font-bold text-stone-800 dark:text-stone-200">
+                            {formatSecondsToHuman(s.durationSeconds, true)}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Daily Notification Reminder Settings */}
+              <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                      <Bell className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                        Daily Phone Notification Reminder
+                      </h4>
+                      <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                        Alerts you on your device to complete your daily tasks for this goal
+                      </p>
+                    </div>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => {
-                      if (notificationPermission !== 'granted') {
-                        requestNotificationAccess().then(() => {
-                          triggerGoalReminderAlert(goal);
-                          setReminderTestSent(true);
-                          setTimeout(() => setReminderTestSent(false), 3000);
-                        });
-                      } else {
-                        triggerGoalReminderAlert(goal);
-                        setReminderTestSent(true);
-                        setTimeout(() => setReminderTestSent(false), 3000);
+                      if (!goal.reminderEnabled && notificationPermission !== 'granted') {
+                        requestNotificationAccess();
                       }
+                      updateGoal(goal.id, {
+                        reminderEnabled: !goal.reminderEnabled,
+                        reminderTime: goal.reminderTime || '09:00',
+                      });
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 hover:bg-amber-500/10 text-stone-700 dark:text-stone-300 hover:text-amber-600 border border-stone-200 dark:border-stone-700 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      goal.reminderEnabled ? 'bg-amber-500' : 'bg-stone-300 dark:bg-stone-700'
+                    }`}
+                    role="switch"
+                    aria-checked={goal.reminderEnabled}
+                    title="Toggle daily reminder"
                   >
-                    <BellRing className="w-3.5 h-3.5 text-amber-500" />
-                    <span>{reminderTestSent ? 'Reminder Alert Sent!' : 'Test Daily Alert'}</span>
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                        goal.reminderEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
                   </button>
                 </div>
+
+                {goal.reminderEnabled && (
+                  <div className="pt-2 border-t border-amber-500/15 flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-150">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      <span className="text-xs font-semibold text-stone-700 dark:text-stone-300">
+                        Reminder Time:
+                      </span>
+                      <input
+                        type="time"
+                        value={goal.reminderTime || '09:00'}
+                        onChange={(e) => updateGoal(goal.id, { reminderTime: e.target.value })}
+                        className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100 font-mono shadow-xs"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (notificationPermission !== 'granted') {
+                            requestNotificationAccess().then(() => {
+                              triggerGoalReminderAlert(goal);
+                              setReminderTestSent(true);
+                              setTimeout(() => setReminderTestSent(false), 3000);
+                            });
+                          } else {
+                            triggerGoalReminderAlert(goal);
+                            setReminderTestSent(true);
+                            setTimeout(() => setReminderTestSent(false), 3000);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 hover:bg-amber-500/10 text-stone-700 dark:text-stone-300 hover:text-amber-600 border border-stone-200 dark:border-stone-700 text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+                      >
+                        <BellRing className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{reminderTestSent ? 'Reminder Alert Sent!' : 'Test Phone Alert'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Actions & Certificate Button */}
-          <div className="shrink-0 p-4 sm:p-5 border-t border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-3 bg-stone-50/50 dark:bg-stone-900/50">
-            <div className="flex items-center gap-2">
-              {!isCompleted && (
-                <button
-                  type="button"
-                  onClick={handleTogglePause}
-                  className="px-4 py-2 rounded-xl border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  {isPaused ? (
-                    <>
-                      <Play className="w-3.5 h-3.5" />
-                      <span>Resume Goal</span>
-                    </>
-                  ) : (
-                    <>
-                      <Pause className="w-3.5 h-3.5" />
-                      <span>Pause Goal</span>
-                    </>
+              {/* Actions & Certificate Button */}
+              <div className="shrink-0 pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  {!isCompleted && (
+                    <button
+                      type="button"
+                      onClick={handleTogglePause}
+                      className="px-4 py-2 rounded-xl border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      {isPaused ? (
+                        <>
+                          <Play className="w-3.5 h-3.5" />
+                          <span>Resume Goal</span>
+                        </>
+                      ) : (
+                        <>
+                          <Pause className="w-3.5 h-3.5" />
+                          <span>Pause Goal</span>
+                        </>
+                      )}
+                    </button>
                   )}
-                </button>
-              )}
 
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete</span>
-              </button>
-            </div>
-
-            <div>
-              {isCompleted ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    setActiveView('certificates');
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
-                >
-                  <Award className="w-4 h-4" />
-                  <span>View Certificate</span>
-                </button>
-              ) : isFullyFulfilled ? (
-                <button
-                  type="button"
-                  onClick={handleFinishAndCertify}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-all cursor-pointer ring-2 ring-emerald-500/30 animate-pulse"
-                >
-                  <Award className="w-4 h-4" />
-                  <span>Claim & Generate Certificate (100% Done!)</span>
-                </button>
-              ) : (
-                <div className="flex flex-col items-end gap-1">
                   <button
                     type="button"
-                    disabled
-                    className="px-4 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500 text-xs font-semibold flex items-center gap-2 cursor-not-allowed border border-stone-200 dark:border-stone-700 opacity-80"
-                    title="You must complete 100% of all required daily tasks to receive your certificate."
+                    onClick={() => setIsEditing(true)}
+                    className="px-3.5 py-2 rounded-xl border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    <Lock className="w-3.5 h-3.5 text-stone-400" />
-                    <span>Certificate Locked ({progressMetrics.fulfilledDaysCount}/{goal.durationDays} Days • {progressMetrics.percentage}%)</span>
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Modify</span>
                   </button>
-                  <span className="text-[10px] text-stone-400">
-                    Complete all {goal.durationDays} days to unlock certificate
-                  </span>
+
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
                 </div>
-              )}
+
+                <div>
+                  {isCompleted ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        setActiveView('certificates');
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Award className="w-4 h-4" />
+                      <span>View Certificate</span>
+                    </button>
+                  ) : isFullyFulfilled ? (
+                    <button
+                      type="button"
+                      onClick={handleFinishAndCertify}
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-all cursor-pointer ring-2 ring-emerald-500/30 animate-pulse"
+                    >
+                      <Award className="w-4 h-4" />
+                      <span>Claim & Generate Certificate (100% Done!)</span>
+                    </button>
+                  ) : (
+                    <div className="flex flex-col items-end gap-1">
+                      <button
+                        type="button"
+                        disabled
+                        className="px-4 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500 text-xs font-semibold flex items-center gap-2 cursor-not-allowed border border-stone-200 dark:border-stone-700 opacity-80"
+                        title="You must complete 100% of all required daily tasks to receive your certificate."
+                      >
+                        <Lock className="w-3.5 h-3.5 text-stone-400" />
+                        <span>Certificate Locked ({progressMetrics.fulfilledDaysCount}/{goal.durationDays} Days • {progressMetrics.percentage}%)</span>
+                      </button>
+                      <span className="text-[10px] text-stone-400">
+                        Complete all {goal.durationDays} days to unlock certificate
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -478,7 +863,6 @@ export const GoalDetailModal: React.FC<GoalDetailModalProps> = ({ goal, onClose 
           onClose={() => setSelectedTaskForCalendar(null)}
         />
       )}
-    </div>
     </ModalPortal>
   );
 };

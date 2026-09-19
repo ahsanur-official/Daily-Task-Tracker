@@ -64,7 +64,7 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
   const [taskList, setTaskList] = useState<
     Array<{ title: string; requiredDurationMinutes: number; description?: string }>
   >([
-    { title: 'Core Practice Session', requiredDurationMinutes: 45 },
+    { title: '', requiredDurationMinutes: 45 },
   ]);
 
   useEffect(() => {
@@ -120,26 +120,27 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    const cleanGoalTitle = title.trim();
+    if (!cleanGoalTitle) return;
 
     const validTasks = taskList
-      .filter((t) => t.title.trim().length > 0)
       .map((t) => ({
-        title: t.title.trim(),
-        requiredDurationMinutes: Math.max(1, t.requiredDurationMinutes || 15),
+        title: t.title.trim() || cleanGoalTitle,
+        requiredDurationMinutes: Math.max(1, t.requiredDurationMinutes || 30),
         description: t.description,
-      }));
+      }))
+      .filter((t) => t.title.length > 0);
 
     if (validTasks.length === 0) {
       validTasks.push({
-        title: `${title} Daily Task`,
+        title: cleanGoalTitle,
         requiredDurationMinutes: 30,
       });
     }
 
     createGoal(
       {
-        title: title.trim(),
+        title: cleanGoalTitle,
         description: description.trim(),
         category,
         color,
@@ -164,14 +165,14 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
     <ModalPortal isOpen={isOpen}>
       <div
         onClick={onClose}
-        className="fixed inset-0 z-[100] bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+        className="fixed inset-0 z-[100] bg-stone-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 pointer-events-auto"
         role="dialog"
         aria-modal="true"
         aria-label="Create New Goal Dialog"
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-2xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200"
+          className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-2xl shadow-2xl overflow-hidden max-h-[calc(100dvh-2rem)] sm:max-h-[88vh] flex flex-col animate-in fade-in zoom-in-95 duration-200"
         >
           {/* Mandatory, Always-Visible 'X' Close Button in Top-Right Corner */}
           <button
@@ -431,7 +432,7 @@ export const CreateGoalModal: React.FC<CreateGoalModalProps> = ({ isOpen, onClos
                   <input
                     type="text"
                     required
-                    placeholder="Task name (e.g. Study, Code, Read)"
+                    placeholder={title.trim() ? `${title.trim()} Session` : 'Task name (e.g. Study, Code, Read)'}
                     value={task.title}
                     onChange={(e) => handleTaskChange(index, 'title', e.target.value)}
                     className="flex-1 text-xs px-3 py-2 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-900 dark:text-stone-100"

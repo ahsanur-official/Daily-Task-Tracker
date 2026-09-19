@@ -15,10 +15,15 @@ interface GoalsViewProps {
 export const GoalsView: React.FC<GoalsViewProps> = ({ onOpenCreateGoal }) => {
   const { goals, tasks, sessions, todayDate } = useApp();
 
-  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<GoalStatus | 'all'>('all');
   const [filterLabel, setFilterLabel] = useState<string | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const activeSelectedGoal = useMemo(() => {
+    if (!selectedGoalId) return null;
+    return goals.find((g) => g.id === selectedGoalId) || null;
+  }, [selectedGoalId, goals]);
 
   const uniqueLabels = useMemo(() => {
     const map = new Map<string, { label: string; color: string; count: number }>();
@@ -205,7 +210,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({ onOpenCreateGoal }) => {
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.35, delay: Math.min(index * 0.05, 0.35) }}
                   whileHover={{ y: -3, transition: { duration: 0.18 } }}
-                  onClick={() => setSelectedGoal(goal)}
+                  onClick={() => setSelectedGoalId(goal.id)}
                   className="p-6 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 hover:border-amber-400/60 dark:hover:border-amber-500/50 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
                 >
                   <div>
@@ -301,7 +306,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({ onOpenCreateGoal }) => {
       )}
 
       {/* Goal Detail Modal */}
-      <GoalDetailModal goal={selectedGoal} onClose={() => setSelectedGoal(null)} />
+      <GoalDetailModal goal={activeSelectedGoal} onClose={() => setSelectedGoalId(null)} />
     </div>
   );
 };

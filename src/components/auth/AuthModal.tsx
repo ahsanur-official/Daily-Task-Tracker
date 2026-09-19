@@ -308,11 +308,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ forceOpen = false }) => {
   return (
     <ModalPortal isOpen={isOpen}>
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-md animate-fadeIn overflow-y-auto"
+        className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-stone-950/80 backdrop-blur-sm animate-fadeIn pointer-events-auto"
         onClick={() => setIsAuthModalOpen(false)}
       >
         <div
-        className="relative w-full max-w-xl bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden my-auto"
+        className="relative w-full max-w-xl bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden max-h-[calc(100dvh-2rem)] sm:max-h-[88vh] flex flex-col my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}

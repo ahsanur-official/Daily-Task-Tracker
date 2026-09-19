@@ -109,9 +109,35 @@ export const ActiveTimerModal: React.FC = () => {
 
       {/* Main Focus Center */}
       <div className="flex flex-col items-center text-center max-w-xl w-full my-auto">
-        <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white mb-2">
-          {currentTask?.title || 'Focus Task'}
-        </h2>
+        <div className="flex items-center justify-center gap-2 mb-2 flex-wrap">
+          {currentGoal?.color && (
+            <span
+              className="w-3 h-3 rounded-full shrink-0"
+              style={{ backgroundColor: currentGoal.color }}
+            />
+          )}
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+            {currentGoal?.title || currentTask?.title || 'Focus Session'}
+          </h2>
+          {currentGoal?.colorLabel && (
+            <span
+              className="px-2 py-0.5 rounded text-xs font-bold border shrink-0 inline-flex items-center gap-1"
+              style={{
+                backgroundColor: `${currentGoal.color}25`,
+                borderColor: `${currentGoal.color}55`,
+                color: currentGoal.color,
+              }}
+            >
+              <span>{currentGoal.colorLabel}</span>
+            </span>
+          )}
+        </div>
+
+        {currentTask?.title && currentTask.title !== currentGoal?.title && (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-800 text-xs text-stone-300 font-medium mb-3">
+            <span>Task: {currentTask.title}</span>
+          </div>
+        )}
         
         {currentGoal?.motivationalQuote && (
           <p className="text-sm text-stone-400 italic mb-8 max-w-md">

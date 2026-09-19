@@ -87,7 +87,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenCreateGoal, onOpenMo
       {/* Mobile Bottom Navigation Bar with Scroll Auto-Hide and Smooth Re-appearance */}
       <nav
         aria-label="Mobile navigation"
-        className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 px-3 py-1.5 flex items-center justify-around shadow-lg transition-all duration-300 ease-in-out transform ${
+        className={`md:hidden flex fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-t border-stone-200 dark:border-stone-800 px-3 py-1.5 items-center justify-around shadow-lg transition-all duration-300 ease-in-out transform ${
           isVisible
             ? 'translate-y-0 opacity-100 pointer-events-auto'
             : 'translate-y-full opacity-0 pointer-events-none'

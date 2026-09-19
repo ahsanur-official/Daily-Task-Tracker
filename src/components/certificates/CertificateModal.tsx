@@ -74,14 +74,14 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({ certificate,
     <ModalPortal isOpen={!!certificate}>
       <div
         onClick={onClose}
-        className="fixed inset-0 z-[100] bg-stone-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto cursor-pointer"
+        className="fixed inset-0 z-[100] bg-stone-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 pointer-events-auto cursor-pointer"
         role="dialog"
         aria-modal="true"
         aria-label="Certificate Modal"
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-4xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200 cursor-default"
+          className="relative bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 w-full max-w-4xl shadow-2xl overflow-hidden max-h-[calc(100dvh-2rem)] sm:max-h-[88vh] flex flex-col my-auto animate-in zoom-in-95 duration-200 cursor-default"
         >
           {/* Mandatory, Always-Visible 'X' Close Button in the Top-Right Corner */}
           <button

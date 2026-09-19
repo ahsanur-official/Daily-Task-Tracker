@@ -185,6 +185,16 @@ interface AppContextType {
   setIsSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebar: () => void;
 
+  // Desktop Hamburger Menu State
+  isDesktopMenuOpen: boolean;
+  setIsDesktopMenuOpen: (open: boolean) => void;
+  toggleDesktopMenu: () => void;
+
+  // Display Mode (App Mode / Mobile View vs Desktop)
+  isMobileAppMode: boolean;
+  setMobileAppMode: (val: boolean) => void;
+  toggleMobileAppMode: () => void;
+
   // Notifications
   notificationPermission: NotificationPermissionStatus;
   requestNotificationAccess: () => Promise<NotificationPermissionStatus>;
@@ -245,6 +255,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     return loadFromLocalStorage<boolean>(STORAGE_KEYS.SIDEBAR_COLLAPSED, false);
   });
+
+  // Desktop Hamburger Navigation Menu State
+  const [isDesktopMenuOpen, setIsDesktopMenuOpen] = useState<boolean>(false);
+
+  const toggleDesktopMenu = useCallback(() => {
+    setIsDesktopMenuOpen((prev) => !prev);
+  }, []);
+
+  // Dedicated Mobile App View mode (Persists across sessions, defaults to true for a flawless mobile app experience)
+  const [isMobileAppMode, setIsMobileAppModeState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('daily_tracker_force_mobile_app_mode');
+      if (saved !== null) {
+        return saved === 'true';
+      }
+    }
+    // Default to true so app always provides a unified mobile app experience on Chrome & web
+    return true;
+  });
+
+  const setMobileAppMode = useCallback((val: boolean) => {
+    setIsMobileAppModeState(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('daily_tracker_force_mobile_app_mode', val ? 'true' : 'false');
+    }
+  }, []);
+
+  const toggleMobileAppMode = useCallback(() => {
+    setIsMobileAppModeState((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('daily_tracker_force_mobile_app_mode', next ? 'true' : 'false');
+      }
+      return next;
+    });
+  }, []);
 
   const [user, setUser] = useState<UserProfile | null>(() => {
     return loadFromLocalStorage<UserProfile | null>(STORAGE_KEYS.USER_PROFILE, null);
@@ -2290,6 +2336,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isSidebarCollapsed,
         setIsSidebarCollapsed: handleSetSidebarCollapsed,
         toggleSidebar,
+        isDesktopMenuOpen,
+        setIsDesktopMenuOpen,
+        toggleDesktopMenu,
+        isMobileAppMode,
+        setMobileAppMode,
+        toggleMobileAppMode,
         notificationPermission,
         requestNotificationAccess,
         sendTestNotificationAlert,

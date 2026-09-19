@@ -75,7 +75,16 @@ export function triggerBrowserNotification(options: AppNotificationOptions): boo
     }
   }
 
-  // 2. Dispatch native OS/Browser notification if supported and granted
+  // 2. Trigger physical vibration on mobile phones if supported
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate([200, 100, 200]);
+    } catch {
+      // vibration non-fatal
+    }
+  }
+
+  // 3. Dispatch native OS/Browser notification if supported and granted
   if (!isNotificationSupported()) {
     return false;
   }
@@ -84,11 +93,39 @@ export function triggerBrowserNotification(options: AppNotificationOptions): boo
     return false;
   }
 
+  // On Mobile Phones / PWA app mode, serviceWorker.showNotification is required
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.ready
+      .then((registration) => {
+        return registration.showNotification(options.title, {
+          body: options.body,
+          icon: options.icon || '/pwa-192x192.png',
+          badge: options.badge || '/icon.svg',
+          tag: options.tag || `notif-${options.type || 'general'}-${Date.now()}`,
+          requireInteraction: options.requireInteraction ?? true,
+          silent: false,
+          data: {
+            taskId: options.taskId,
+            goalId: options.goalId,
+          },
+        } as NotificationOptions);
+      })
+      .catch(() => {
+        // Fallback to Notification constructor if service worker ready fails
+        tryDirectNotification(options);
+      });
+    return true;
+  }
+
+  return tryDirectNotification(options);
+}
+
+function tryDirectNotification(options: AppNotificationOptions): boolean {
   try {
     const nativeNotification = new Notification(options.title, {
       body: options.body,
-      icon: options.icon || '/logo.svg',
-      badge: options.badge || '/logo.svg',
+      icon: options.icon || '/pwa-192x192.png',
+      badge: options.badge || '/icon.svg',
       tag: options.tag || `notif-${options.type || 'general'}-${Date.now()}`,
       requireInteraction: options.requireInteraction ?? true,
       silent: false,
